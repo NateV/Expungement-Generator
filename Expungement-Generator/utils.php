@@ -7,7 +7,7 @@
 *	a collection of utilities used by the rest of the expungement generator
 *
 *	Copyright 2011-2015 Community Legal Services
-* 
+*
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
 * You may obtain a copy of the License at
@@ -54,7 +54,7 @@ function getPersonFromPostOrSession($data = FALSE)
 {
         if($data===FALSE)
            $data = $_POST;
-    
+
 	if ($GLOBALS['debug'])
 	{
 		print "POST VARS: <br />";
@@ -63,7 +63,7 @@ function getPersonFromPostOrSession($data = FALSE)
 			print "$name: $value <br/>";
 		}
 	}
-	
+
     if (isset($data["personFirst"]))
   	    $_SESSION['urlPerson']['First'] = $GLOBALS['db']->real_escape_string(htmlspecialchars(stripslashes($data["personFirst"])));
     if (isset($data["personLast"]))
@@ -81,12 +81,12 @@ function getPersonFromPostOrSession($data = FALSE)
     	$_SESSION['urlPerson']['Zip'] = $GLOBALS['db']->real_escape_string(htmlspecialchars(stripslashes($data["personZip"])));
     if (isset($data["personStreet"]))
     	$_SESSION['urlPerson']['SSN'] = $GLOBALS['db']->real_escape_string(htmlspecialchars(stripslashes($data["personSSN"])));
-    
+
 	return $_SESSION['urlPerson'];
 }
 
 // there is some informaiton that we want to get from getVars.  The last page of the EG
-// where the cases are displayed allows for a person to click on a result and 
+// where the cases are displayed allows for a person to click on a result and
 // output an Act 5 or pardon petition.  The vars used to do that are stored here
 function getInfoFromGetVars($data = FALSE)
 {
@@ -98,9 +98,9 @@ function getInfoFromGetVars($data = FALSE)
     $_SESSION['act5Regardless'] = isset($_GET['act5Regardless']) || isset($data['act5Regardless']);
     $_SESSION['expungeRegardless'] = isset($_GET['expungeRegardless']) || isset($data['expungeRegardless']);
     $_SESSION['zipOnly'] = isset($data['zipOnly']) || isset($_GET['zipOnly']);
-    
+
 }
-  
+
 	// gets vars passed in from LS
 // @return a hash with each value from the get vars escaped etc... to be html and sql safe
 function getLSVars()
@@ -114,9 +114,9 @@ function getLSVars()
 			print "$name: $value <br/>";
 		}
 	}
-	
+
 	$LSVars = array();
-	
+
 	if (isSet($_POST["personFirst"])) $LSVars['First'] = $GLOBALS['db']->real_escape_string(htmlspecialchars(stripslashes($_POST["personFirst"])));
 	if (isSet($_POST["personLast"])) $LSVars['Last'] = $GLOBALS['db']->real_escape_string(htmlspecialchars(stripslashes($_POST["personLast"])));
 	if (isSet($_POST["personStreet"])) $LSVars['Street'] = $GLOBALS['db']->real_escape_string(htmlspecialchars(stripslashes($_POST["personStreet"])));
@@ -130,7 +130,7 @@ function getLSVars()
 	if (isSet($_POST["personLSPass"])) $LSVars['LSPass'] = $GLOBALS['db']->real_escape_string(htmlspecialchars(stripslashes($_POST["LSPass"])));
 	if (isSet($_POST["Token"])) $LSVars['Token'] = $GLOBALS['db']->real_escape_string(htmlspecialchars(stripslashes($_POST["Token"])));
 	if (isSet($_POST["debug"])) $LSVars['debug'] = $GLOBALS['db']->real_escape_string(htmlspecialchars(stripslashes($_POST["debug"])));
-	
+
 	return $LSVars;
 }
 
@@ -156,7 +156,7 @@ function zipFiles($files, $dataDir, $dockets, $fileName)
 {
 	$zip = new ZipArchive();
 	$zipFileName = $dataDir . $fileName . ".zip";
-	
+
 	if ($zip->open($zipFileName, ZipArchive::OVERWRITE|ZipArchive::CREATE)===TRUE )
 	{
 		foreach ($files as $index=>$file)
@@ -164,16 +164,16 @@ function zipFiles($files, $dataDir, $dockets, $fileName)
 			if($zip->addFile($file, basename($file)) && $GLOBALS['debug'])
 				print "added $file to archive <br />";
 		}
-        
+
         foreach ($dockets['userFile']['tmp_name'] as $key=>$docket)
         {
             $zip->addFile($docket, "dockets" . DIRECTORY_SEPARATOR . $dockets['userFile']['name'][$key]);
         }
-        
+
 		if ($zip->close())
 			return $zipFileName;
 	}
-	
+
 	// if we couldn't open the zip file or save the zip file, return null
 	return NULL;
 }
@@ -194,7 +194,7 @@ function cleanupFiles($files)
 		}
 	}
 }
- 
+
 // calculates date1-date2 in years
 function dateDifference($date1, $date2)
 {
@@ -204,7 +204,7 @@ function dateDifference($date1, $date2)
 	if (((int)$date1->format('z')) > ((int)$date2->format('z')))
 		return $difference;
 	else
-		return $difference-1;	
+		return $difference-1;
 }
 
 // @return a date in the form YYYY-MM-DD
@@ -235,23 +235,23 @@ function doesPDFExistForCaseId($id)
 // @param filename - the relative filename
 function serveFile($filename)
 {
-    
+
     # run basename on filename to make sure we aren't getting any directory input, like ../config.php or something
     $file = $GLOBALS['dataDir'] . basename($filename);
 
     if(!file_exists($file))
-    { 
+    {
         header ("HTTP/1.0 404 Not Found");
         return;
     }
-    
-    else 
+
+    else
     {
         $size=filesize($file);
-        header('HTTP/1.0 200 OK');  
+        header('HTTP/1.0 200 OK');
         header('Content-Description: File Transfer');
         header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
-        header('Pragma: no-cache');  
+        header('Pragma: no-cache');
         header('Expires: 0');
         header('Accept-Ranges: bytes');
         header('Content-Length:' . $size);
@@ -270,27 +270,27 @@ function createTrackingSpreadsheet($names, $programid)
 {
     // remove newlines from teh name list
     $namelist = preg_split('/\r\n|[\r\n]/', $names);
-    
+
     // create a temporary file and open it; insert the headers for teh CSV
     $filename = $GLOBALS['dataDir'] . time() . ".csv";
     $csv = fopen($filename, 'w');
     fputcsv($csv, array("First", "Last", "Case", "OTN", "Arrest Date", "E/R", "Order", "PSP", "Philly", "Docket", "Summary"));
-            
-    
+
+
     // prepare the sql statement; this will be run through for each name.
     if ($psql = $GLOBALS['db']->prepare("
             SELECT  d.firstname as 'First', d.lastname as 'Last', a.docketNumPrimary as 'Case', a.OTN as 'OTN',
-             DATE_FORMAT(a.arrestDate, '%m/%d/%Y') as 'Arrest Date', 
-             if(e.isExpungement+e.isRedaction = 2, 'R', 'E') as 'E/R' FROM defendant as d left join 
+             DATE_FORMAT(a.arrestDate, '%m/%d/%Y') as 'Arrest Date',
+             if(e.isExpungement+e.isRedaction = 2, 'E', 'R') as 'E/R' FROM defendant as d left join
              expungement as e on d.defendantID = e.defendantID left join arrest as a on e.arrestid = a.arrestid
-             LEFT JOIN userinfo on e.userid=userinfo.userid WHERE d.firstname=? AND d.lastname=? 
+             LEFT JOIN userinfo on e.userid=userinfo.userid WHERE d.firstname=? AND d.lastname=?
              AND e.isRedaction+e.isSummaryExpungement > 0 AND programid=" . $programid . "
              ORDER BY d.lastName, d.firstname"))
     {
-       
+
         // bind the first and lst name as the variables that will be inserted
         $psql->bind_param("ss", $first, $last);
-        
+
         // run through each of the names in the list and run the query on each
         foreach ($namelist as $name)
         {
@@ -298,23 +298,23 @@ function createTrackingSpreadsheet($names, $programid)
             list($first, $last) = array_map('trim', explode(",", $name));
             $psql->execute();
             $psql->bind_result($f, $l, $docket, $otn, $arrest_date, $type);
-            
+
             // fetch each result for this person and put it into the CSV file
             while($psql->fetch())
             {
                 fputcsv($csv, array($f,$l,$docket,$otn,$arrest_date,$type,"","","","",""));
             }
         }
-            
+
         fclose($csv);
         return $filename;
     }
 
-    
+
     // if there was some sort of problem preparing the statement, send an error to the screen
     else
         return "aasdf" . $GLOBALS['db']->error;
-                                  
+
 
 
 }
