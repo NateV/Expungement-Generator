@@ -4,6 +4,7 @@
 	include('CPCMS.php');
 	require_once('utils.php');
 	require_once('config.php');
+	require_once('Record.php');
 	include('expungehelpers.php');
 	include('helpers/mail_helper.php');
 	include('helpers/api_validator.php');
