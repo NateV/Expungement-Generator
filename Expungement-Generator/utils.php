@@ -95,7 +95,7 @@ function getInfoFromGetVars($data = FALSE)
 
     if (isset($_GET['docket']))
     	$_SESSION['docket'] = explode("|", $GLOBALS['db']->real_escape_string(htmlspecialchars(stripslashes($_GET["docket"]))));
-    $_SESSION['act5Regardless'] = isset($_GET['act5Regardless']) || isset($data['act5Regardless']);
+    $_SESSION['sealingRegardless'] = isset($_GET['sealingRegardless']) || isset($data['sealingRegardless']);
     $_SESSION['expungeRegardless'] = isset($_GET['expungeRegardless']) || isset($data['expungeRegardless']);
     $_SESSION['zipOnly'] = isset($data['zipOnly']) || isset($_GET['zipOnly']);
 

@@ -27,6 +27,7 @@
 
 
 require_once("config.php");
+require_once("Record.php");
 require_once("Arrest.php");
 require_once("ArrestSummary.php");
 require_once("Person.php");
@@ -40,13 +41,13 @@ include('header.php');
 ?>
 
 <div class="main">
-	<div class="pure-u-5-24">&nbsp;</div>
-	<div class="pure-u-14-24">
+    <div class="pure-u-5-24">&nbsp;</div>
+    <div class="pure-u-14-24">
 
 <?php
 // if the user isn't logged in, then don't display this page.  Tell them they need to log in.
 if (!isLoggedIn())
-	include("displayNotLoggedIn.php");
+include("displayNotLoggedIn.php");
 
 // they are logged in, see if we were supposed to do a CPCMS search or if they are sending
 // us files from CPCMS themselves
@@ -60,14 +61,14 @@ else if (isset($_POST['cpcmsSearch']) && $_POST['cpcmsSearch'] == "true")
     $statusMDJ = $cpcms->cpcmsSearch(true);
     if (!preg_match("/Status: 0/",$status[0]) && !preg_match("/Status: 0/", $statusMDJ[0]))
     {
-         print "<br/><b>Your search returned no results.  This is probably because there is no one with the name '" . $urlPerson['First'] . " " . $urlPerson['Last'] . "' in the court database.</b><br/><br/>  The other possibliity is that CPCMS is down.  You can press back and try your search again or you can check <a href='https://ujsportal.pacourts.us/DocketSheets/CP.aspx' target='_blank'>CPCMS by clicking here and doing your search there</a>.</b>";
+        print "<br/><b>Your search returned no results.  This is probably because there is no one with the name '" . $urlPerson['First'] . " " . $urlPerson['Last'] . "' in the court database.</b><br/><br/>  The other possibliity is that CPCMS is down.  You can press back and try your search again or you can check <a href='https://ujsportal.pacourts.us/DocketSheets/CP.aspx' target='_blank'>CPCMS by clicking here and doing your search there</a>.</b>";
     }
     else
     {
         //only integrate the summary information if we
         // have a DOB; otherwise what is the point?
         if (!empty($urlPerson['DOB']))
-            $cpcms->integrateSummaryInformation();
+        $cpcms->integrateSummaryInformation();
 
         // remove the cpcmsSearch variable from the POST vars and then pass them to
         // a display funciton that will display all of the arrests as a webform, with all
@@ -82,76 +83,80 @@ else if (isset($_POST['cpcmsSearch']) && $_POST['cpcmsSearch'] == "true")
 else
 {
     if (isset($_POST['docket']))
-       $_SESSION['docket'] = $_POST['docket'];
+    $_SESSION['docket'] = $_POST['docket'];
     if (isset($_POST['scrapedDockets']))
-       $_SESSION['scrapedDockets'] = $_POST['scrapedDockets'];
+    $_SESSION['scrapedDockets'] = $_POST['scrapedDockets'];
 
-	$arrests = array();
-	$arrestSummary = new ArrestSummary();
+#xx    $arrests = array();
+#xx    $arrestSummary = new ArrestSummary();
 
-	// get information about the person from the POST vars passed in
-	$urlPerson = getPersonFromPostOrSession();
-	$person = new Person($urlPerson['First'], $urlPerson['Last'], $urlPerson['SSN'], $urlPerson['Street'], $urlPerson['City'], $urlPerson['State'], $urlPerson['Zip']);
+    // get information about the person from the POST vars passed in
+    $urlPerson = getPersonFromPostOrSession();
+    $person = new Person($urlPerson['First'], $urlPerson['Last'], $urlPerson['SSN'], $urlPerson['Street'], $urlPerson['City'], $urlPerson['State'], $urlPerson['Zip']);
+    $record = new Record($person);
 
     // set some session vars based on get and post vars
     getInfoFromGetVars();
 
-	// make sure to change this in the future to prevent hacking!
-	$attorney = new Attorney($_SESSION["loginUserID"], $db);
-	if($GLOBALS['debug'])
-		$attorney->printAttorneyInfo();
+    // make sure to change this in the future to prevent hacking!
+    $attorney = new Attorney($_SESSION["loginUserID"], $db);
+    if($GLOBALS['debug'])
+        $attorney->printAttorneyInfo();
 
-	// parse the uploaded files will lead to expungements or redactions
+    // parse the uploaded files will lead to expungements or redactions
     $docketFiles = $_FILES;
     if (isset($_SESSION['scrapedDockets']))
         $docketFiles = CPCMS::downloadDockets($_SESSION['docket']);
 
-	$arrests = parseDockets($tempFile, $pdftotext, $arrestSummary, $person, $docketFiles);
+    $record->parseDockets($tempFile, $pdftotext, $docketFiles);
 
-	// integrate the summary information in with the arrests
-	integrateSummaryInformation($arrests, $person, $arrestSummary);
+    // integrate the summary information in with the arrests
+    $record->integrateSummaryInformation();
 
-	print "<b>EXPUNGEMENT INFORMATION</b><br/><br/>";
-	// combine the docket sheets that are from the same arrest
-	$arrests = combineArrests($arrests);
+    print "<b>EXPUNGEMENT INFORMATION</b><br/><br/>";
+    // combine the docket sheets that are from the same arrest
+    #$arrests = combineArrests($arrests);
+    $record->combineArrests();
+
 
     // check to see if Act5 Sealable
-    $sealable = checkIfSealable($arrests);
-
-	// do the expungements in PDF form
-	$files = doExpungements($arrests, $templateDir, $dataDir, $person, $attorney, $_SESSION['expungeRegardless'], $db, $sealable);
+    $record->checkSealingEligibility();
 
 
-	$files[] = createOverview($arrests, $templateDir, $dataDir, $person, $sealable);
+    // do the expungements in PDF form
+    $files = doExpungements($record->getArrests(), $templateDir, $dataDir, $record->getPerson(), $attorney, $_SESSION['expungeRegardless'], $db);
+    $files[] = createOverview($record->getArrests(), $templateDir, $dataDir, $record->getPerson());
 
-	// zip up the final PDFs
-	$zipFile = zipFiles($files, $dataDir, $docketFiles, $person->getFirst() . $person->getLast() . "Expungements");
+    $files[] = $record->generateCleanSlateOverview($templateDir, $dataDir);
 
-	print "<div>&nbsp;</div>";
-	if (count($files) > 0)
-		print "<div><b>Download Petitions and Overview: <a href='secureServe.php?serveFile=" . basename($zipFile). "'>" . basename($zipFile) . "</a></b></div>";
-	else
-		print "<div><b>No expungeable or redactable offenses found for this individual.</b></div>";
+    // zip up the final PDFs
+    $zipFile = zipFiles($files, $dataDir, $docketFiles, $record->getPerson()->getFirst() . $record->getPerson()->getLast() . "Expungements");
 
-	// write everything to the DB as long as this wasn't a "test" upload.
-	// we determine test upload if a SSN is entered.  If there is no SSN, we assume that
-	// there was no expungement either - it was just a test to see whether expungements were
-	// possible or a test of the generator itself by yours truly.
-	if (isset($urlPerson['SSN']) && $urlPerson['SSN'] != "")
-		writeExpungementsToDatabase($arrests, $person, $attorney, $db);
+    print "<div>&nbsp;</div>";
+    if (count($files) > 0)
+        print "<div><b>Download Petitions and Overview: <a href='secureServe.php?serveFile=" . basename($zipFile). "'>" . basename($zipFile) . "</a></b></div>";
+    else
+        print "<div><b>No expungeable or redactable offenses found for this individual.</b></div>";
+
+    // write everything to the DB as long as this wasn't a "test" upload.
+    // we determine test upload if a SSN is entered.  If there is no SSN, we assume that
+    // there was no expungement either - it was just a test to see whether expungements were
+    // possible or a test of the generator itself by yours truly.
+    if (isset($urlPerson['SSN']) && $urlPerson['SSN'] != "")
+    writeExpungementsToDatabase($record->getArrest(), $record->getPerson(), $attorney, $db);
 
 
-	// if we are debuging, display the expungements
-	if ($GLOBALS['debug'])
-		screenDisplayExpungements($arrests);
+    // if we are debuging, display the expungements
+    if ($GLOBALS['debug'])
+    screenDisplayExpungements($record->getArrests);
 
-	// cleanup any files that are left over
-	cleanupFiles($files);
+    // cleanup any files that are left over
+    cleanupFiles($files);
 } // if isLoggedIn()
-?>
-		</div> <!-- content-center -->
-	<div class="pure-u-4-24"><?php include("expungementDisclaimers.php");?></div>
-	</div>
+        ?>
+    </div> <!-- content-center -->
+    <div class="pure-u-4-24"><?php include("expungementDisclaimers.php");?></div>
+</div>
 
 <?php
 include ('foot.php');

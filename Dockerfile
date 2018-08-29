@@ -11,13 +11,13 @@ RUN apt-get update && \
     mv phantomjs-2.1.1-linux-x86_64 /usr/local/share && \
     ln -sf /usr/local/share/phantomjs-2.1.1-linux-x86_64/bin/phantomjs /usr/local/bin
 
-RUN git clone git://github.com/casperjs/casperjs.git /usr/local/casperjs && \
+RUN git clone https://github.com/casperjs/casperjs.git /usr/local/casperjs --single-branch && \
     cd /usr/local/casperjs && \
     ln -sf `pwd`/bin/casperjs /usr/local/bin/casperjs && \
     cd /usr/local/include && \
     ln -s /usr/bin/python2.7 /usr/bin/python
 
-RUN git clone https://github.com/CLSPhila/casperscraping /usr/local/include/cpcmsNavigate && \
+RUN git clone https://github.com/CLSPhila/casperscraping /usr/local/include/cpcmsNavigate --single-branch && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 

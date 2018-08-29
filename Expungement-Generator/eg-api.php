@@ -4,6 +4,7 @@
 	include('CPCMS.php');
 	require_once('utils.php');
 	require_once('config.php');
+	require_once('Record.php');
 	include('expungehelpers.php');
 	include('helpers/mail_helper.php');
 	include('helpers/api_validator.php');
@@ -13,15 +14,15 @@
 	$response = array();
 	//set default response code:
 	http_response_code(404);
-	
+
 
 	$request = request_builder();
 
 	// Log the request, but strip identifying info
 	$test_headers = $request;
         error_log("Logging a request to eg-api.");
-	
-	$test_headers['apikey'] = preg_replace('/./', 'x', $test_headers['apikey']);	
+
+	$test_headers['apikey'] = preg_replace('/./', 'x', $test_headers['apikey']);
 	$test_headers['personFirst'] = preg_replace('/(?!^)./','x',$test_headers['personFirst']);
 	$test_headers['personLast'] = preg_replace('/(?!^)./','x',$test_headers['personLast']);
 	$test_headers['personStreet'] = preg_replace('/(?!^)./','x',$test_headers['personStreet']);
@@ -41,7 +42,7 @@
 		$user_id = validAPIKey($request, $db);
 		http_response_code(200);
 		error_log("Starting to process a good response.");
-		$log_trail .= "valid request"; //build a string that shows how the request moved through the script. 
+		$log_trail .= "valid request"; //build a string that shows how the request moved through the script.
 					     //Return it at the end in write_to_resource_log()
 		// a cpcmsSearch flag can be set to true in the post request
 		// to trigger a cpcms search.
@@ -74,8 +75,6 @@
 			}
 		} // end of processing cpcmsSearch
 		error_log("Done processing cpcmsSearch");
-		$arrests = array(); //an array to hold Arrest objects
-		$arrestSummary = new ArrestSummary();
 		$urlPerson = getPersonFromPostOrSession($request);
 		$person = new Person($urlPerson['First'],
 			$urlPerson['Last'],
@@ -84,10 +83,11 @@
 			$urlPerson['City'],
 			$urlPerson['State'],
 			$urlPerson['Zip']);
-	  
-		// TODO get rid of this?	
+		$record = new Record($person);
+
+		// TODO get rid of this?
 		getInfoFromGetVars($request); //this sets session variables based on the GET or
-		// POST variables 'docket', 'act5Regardless', 'expungeRegardless', and
+		// POST variables 'docket', 'sealingRegardless', 'expungeRegardless', and
 		// 'zipOnly'
 		$response['personFirst'] = $urlPerson['First'];
 		$response['personLast'] = $urlPerson['Last'];
@@ -95,9 +95,9 @@
 		$attorney = new Attorney($user_id, $db);
 
 		error_log("Figured out the Attorney:");
-		error_log("Attorney " . $request['current_user'] . " is " . $user_id); 	
+		error_log("Attorney " . $request['current_user'] . " is " . $user_id);
 		$docketFiles = $_FILES;
-		
+
 		if (!isset($docketNums)) {
 			// If $docketNums wasn't set in CPCMS search, initialize it to an empty array.
 			$docketNums = array();
@@ -115,9 +115,9 @@
 			}
 			$response['results']['dockets'] = $docketNums;
 		}
-		// doExpungements prints a table to the screen. 
+		// doExpungements prints a table to the screen.
 		// combineArrests also prints to the screen.
-		// I only want to print a response object to the screen, so I put the 
+		// I only want to print a response object to the screen, so I put the
 		// the functions that print
 		// into an OutputBuffer to prevent that.
 		ob_start();
@@ -125,36 +125,35 @@
 			//if the cpcms search has been run and has found dockets
 			//or of docket numbers were sent with the request to the api
 			$docketFiles = CPCMS::downloadDockets($docketNums);
-			$arrests = parseDockets($tempFile, $pdftotext, $arrestSummary, $person, $docketFiles);
-			integrateSummaryInformation($arrests, $person, $arrestSummary, True);
+			$record->parseDockets($tempFile, $pdftotext, $docketFiles);
+			$record->integrateSummaryInformation(True);
 			//set $isAPI in integrateSummaryInformation() to True to prevent printing to screen
-			$arrests = combineArrests($arrests);
-			$response['results']['arrestCount'] = count($arrests);
+			$record->combineArrests();
+			$response['results']['arrestCount'] = $record->getTotalArrests();
 			# TODO Could add a function to insert a string of arrest information into $response.
 			# TODO Could also add a function to insert information about chargeObjects (child of Arrest)
 		}
-		$sealable = checkIfSealable($arrests);
+        $files=[];
 
-        	$files=[];
-        
 		error_log("beginning to create petitions, if requested.");
 		if (preg_match('/^(t|true|1)$/i', $request['createPetitions'])===1) {
-    		$files = doExpungements($arrests, $templateDir, $dataDir, $person,
+    		$files = doExpungements($record->getArrests(), $templateDir, $dataDir, $record->getPerson(),
 	    		$attorney, $_SESSION['expungeRegardless'],
-		    	$db, $sealable);
+		    	$db);
 	    	//$response['results']['sealing'] = $parsed_results['sealing'];
-		$files[] = createOverview($arrests, $templateDir, $dataDir, $person, $sealable);
-        	}//end of creating petitions if createPetitions was set.
-        
+			$files[] = createOverview($record->getArrests(), $templateDir, $dataDir, $record->getPerson());
+			$files[] = $record->generateCleanSlateOverview($templateDir, $dataDir);
+        }//end of creating petitions if createPetitions was set.
+
 		ob_end_clean();
-        
-		$parsed_results = parseArrests($arrests, $sealable, $person);
+
+		$parsed_results = $record->parseArrests();
    		$response['results']['expungements_redactions'] = $parsed_results['expungements_redactions'];
 
         // create the zip file.  The $files array contains the petitions; it will be empty if createPetitions
         // isn't set to 1 or t or true
 		$zipFile = zipFiles($files, $dataDir, $docketFiles,
-				uniqid($person->getFirst() . $person->getLast(), true) . "Expungements");
+				uniqid($record->getPerson()->getFirst() . $record->getPerson()->getLast(), true) . "Expungements");
 
 		if (count($docketNums) > 0) {
 			$response['results']['expungeZip'] = basename($zipFile);
@@ -176,8 +175,8 @@
 			//file_put_contents('php://stderr', print_r($person), TRUE);
 			//error_log("attorney");
 			//file_put_contents('php://stderr', print_r($attorney), TRUE);
-	
-			writeExpungementsToDatabase($arrests, $person, $attorney, $db);
+
+			writeExpungementsToDatabase($record->getArrests(), $record->getPerson(), $attorney, $db);
 			//error_log("wrote to db");
 		}
 		//error_log("cleaning up files");
@@ -186,7 +185,7 @@
 
 
 		error_log("checking whether to email petitions.");
-		
+
 		if (isset($request['emailPetitions']) && preg_match('/^(t|true|1)$/i', $request['emailPetitions'])===1){
 			$log_trail .= ",emailing results";
 			if (!(isset($request['createPetitions']) && preg_match('/^(t|true|1)$/i', $request['createPetitions'])===1)) {
@@ -194,18 +193,18 @@
 				if (isset($response['results']['expungeZip'])) {
 					unset($response['results']['expungeZip']);
 				}
-			} else { 
+			} else {
 				$file_path = $response['results']['expungeZip'];
 				$path_parts = pathinfo($response['results']['expungeZip']);
-				$response['results']['expungeZip'] = $baseURL . "secureServe.php?serveFile=" . $path_parts['filename']; 
-			} 
+				$response['results']['expungeZip'] = $baseURL . "secureServe.php?serveFile=" . $path_parts['filename'];
+			}
 		    //mailPetition($_REQUEST['current_user'], $_REQUEST['current_user'], $response, $file_path);
 		    error_log("Mailing to " . mailDestination($request));
 		    mailPetition(mailDestination($request), mailDestination($request), $response, $file_path);
 		} else {
 			error_log("emailPetitions was not set");
 		}
-	
+
 	}// end of processing req from a valid user
 	error_log("Finished api request.");
 	if (isset($user_id)) {
@@ -214,7 +213,7 @@
 		writeToResourceLog(-1,"eg-api.php",$log_trail);
 	}
 	print_r(json_encode($response, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES, 10));
-    
+
 	function malformedRequest($request) {
 		// Given a dictionary $request
 		// Return false if there are no missing values
@@ -222,15 +221,15 @@
 		// This takes advantage of the truthiness of php strings
 		// 	to supply a helpful message.
 
-		// apikey should get checked first for a complicated reason. The requestbuilder also 
+		// apikey should get checked first for a complicated reason. The requestbuilder also
 		// checks if an apikey is missing, and will assume the request data was json if the api key
-		// was missing. So if the request was HTTP, but missing an apikey, $request will be based on 
-		// the input json data, which is empty and has _no_ keys. Putting apikey key first here will 
+		// was missing. So if the request was HTTP, but missing an apikey, $request will be based on
+		// the input json data, which is empty and has _no_ keys. Putting apikey key first here will
 		// tell the user that the api key is missing, which is accurate, and gives them the right instruction
 		// for correcting the issue.
 		if ( empty($request['apikey']) ) {
 			return "Key missing from request.";
-		}	
+		}
 
 		if (empty($request['current_user'])) {
 			return "User email missing from request.";
@@ -240,84 +239,16 @@
 			return "If you do not wish to do a CPCMS search, then you must supply docket numbers.";
 		}
 
-		if ( !isset($request['createPetitions']) || ($request['createPetitions'] == '')  ) {	
+		if ( !isset($request['createPetitions']) || ($request['createPetitions'] == '')  ) {
 			return "Should I create petitions? Please include createPetitions=[0|1] in your request.";
 		}
 
-		
+
 		return False;
 	};//End of well-formed request
 
 
 
-	function parseArrests($arrests, $sealable, $person) {
-		// Similar to createOverview, but without the microsoft word
-		$results = Array();
-		//print("\nParsing arrests.\n");
-		//print_r($arrests);
-		//print("\n Size of arrests: ");
-		//print(sizeof($arrests));
-		//print("\n");
-		if (sizeof($arrests) == 0) {
-			$results['expungements_redactions'] = ["none"];
-		} else {
-			$results['expungements_redactions'] = Array();
-			$results['sealing'] = Array();
-			foreach($arrests as $arrest) {
-			
-				$thisArrest = Array();
-					
-				$thisArrest['docket'] = htmlspecialchars(implode(", ", $arrest->getDocketNumber()), ENT_COMPAT, 'UTF-8');
-				$thisArrest['otn'] = htmlspecialchars($arrest->getOTN(), ENT_COMPAT, 'UTF-8');				
-
-				$expType = "No expungement possible";
-				if ($arrest->isArrestRedaction()) {
-					$expType = "Partial Expungement";
-				}
-				if ($arrest->isArrestExpungement()) {
-					$expType = "Expungement";
-				}
-				if ($arrest->isArrestARDExpungement()) {
-					$expType = "ARD Expungement***"; 
-				}
-				if ($arrest->isArrestSummaryExpungement($arrests)) {
-					$expType = "Summary Expungement";
-				}
-				if ($arrest->isArrestOver70Expungement($arrests, $person)) {
-					$expType = "Expungement (over 70)";
-				}
-				// Ignoring act 5 sealing for now
-				$thisArrest['expungement_type'] = $expType;
-				$thisArrest['unpaid_costs'] = htmlspecialchars(number_format($arrest->getCostsTotal() - $arrest->getBailTotal(),2),ENT_COMPAT, 'UTF-8');
-				$thisArrest['bail'] = htmlspecialchars(number_format($arrest->getBailTotalTotal(),2), ENT_COMPAT, 'UTF-8');
-				$results['expungements_redactions'][] = $thisArrest;
-				if ($arrest->isArrestSealable()>0) {
-					//then iterate over all the charges
-					foreach ($arrest->getCharges() as $charge) {
-						$thisCharge = Array();
-						// check if the charge is a conviction and if it is sealable (non conviction charges get a 1)
-						if ( $charge->isConviction() && ($charge->isSealable() >0) ) {
-							$thisCharge['case_number'] = htmlspecialchars($arrest->getFirstDocketNumber(), ENT_COMPAT, 'UTF-8');
-							$thisCharge['charge_name'] = htmlspecialchars($charge->getChargeName(), ENT_COMPAT, 'UTF-8');
-							$thisCharge['code_section'] = htmlspecialchars($charge->getCodeSection(), ENT_COMPAT, 'UTF-8');
-							if ($charge->isSealable()==1) {
-								$thisCharge['sealable'] = "Yes";
-							} else {
-							 	$thisCharge['sealable'] = "No";
-							}
-							$thisCharge['additional_information'] = htmlspecialchars($charge->getSealablePercent(), ENT_COMPAT, 'UTF-8');
-							$results['sealing'][] = $thisCharge;
-						} // end processing if a charge is a conviction that is sealable
-					} //end loop over charges for an arrest
-				} // end of checking if arrest is sealable
-
-			}//end of processing arrests
-
-		}// end of processing results
-		//error_log("Returning response:");
-		//error_log("-----------");
-		return $results;
-	}//end of parseArrests
 
 
 ?>

@@ -3,8 +3,8 @@
 	// @todo make aliases work automatically - they should be able to be read off of the case summary
 	// @todo think about whether I want to have the charges array check to see if a duplicate
 	//		 charge is being added and prevent duplicate charges.  A good example of this is if
-	//       a charge is "replaced by information" and then later there is a disposition. 
-	// 		 we probably don't want both the replaced by information and the final disposition on 
+	//       a charge is "replaced by information" and then later there is a disposition.
+	// 		 we probably don't want both the replaced by information and the final disposition on
 	// 		 the petition.  This is especially true if the finally dispoition is Guilty
 
 /********************************************
@@ -16,7 +16,7 @@
 *	It also handles writing an individual arrest to the database and to word files.
 *
 *	Copyright 2011-2015 Community Legal Services
-* 
+*
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
 * You may obtain a copy of the License at
@@ -36,7 +36,7 @@ require_once("Person.php");
 require_once("Attorney.php");
 require_once("utils.php");
 require_once("config.php");
-//require_once __DIR__ . '/vendor/phpoffice/phpword/src/PhpWord/Autoloader.php';                              
+//require_once __DIR__ . '/vendor/phpoffice/phpword/src/PhpWord/Autoloader.php';
 //\PhpOffice\PhpWord\Autoloader::register();
 require "vendor/autoload.php";
 
@@ -87,28 +87,30 @@ class Arrest
 	private $isArrestSummaryExpungement;
 	private $isArrestOver70Expungement;
     private $isArrestConviction;
-    private $sealableMaybeReasons = array();
 	private $pdfFile;
 	private $pdfFileName;
 	private $aliases = array();
-	private $pastAliases = FALSE; // used to stop checking for aliases once we have reached a certain point in the docket sheet	
-	
+	private $pastAliases = FALSE; // used to stop checking for aliases once we have reached a certain point in the docket sheet
+
 	// isMDJ = 0 if this is not an mdj case at all, 1 if this is an mdj case and 2 if this is a CP case that decended from MDJ
 	private $isMDJ = 0;
     private $isJuvenilePhilly = false;
-	
+	private $cleanSlateEligible = array();
+	private $isCleanSlateEligible;
+
 	public static $expungementTemplate = "790ExpungementTemplate.docx";
-	public static $act5Template = "791Act5SealingTemplate.docx";
+	public static $act5Template = "791SealingTemplate.docx";
 	public static $juvenileExpungementTemplate = "JuvenileExpungementTemplate.docx";
 	public static $IFPTemplate = "IFPTemplate.docx";
     public static $COSTemplate = "MontcoCertificateofServiceTemplate.docx";
-   
+
 	public static $overviewTemplate = "overviewTemplate.docx";
-	
+
 	protected static $unknownInfo = "N/A";
 	protected static $unknownOfficer = "Unknown officer";
 	protected static $unknownAgency = "Unknown agency";
-	
+
+
 	protected static $mdjDistrictNumberSearch = "/Magisterial District Judge\s(.*)/i";
 	protected static $countySearch = "/\sof\s(\w+)\sCOUNTY/i";
 	protected static $mdjCountyAndDispositionDateSearch = "/County:\s+(.*)\s+Disposition Date:\s+(.*)/";
@@ -126,10 +128,10 @@ class Arrest
 	protected static $judgeSearch = "/Final Issuing Authority:\s+(.*)/";
 	protected static $judgeAssignedSearch = "/Judge Assigned:\s+(.*)\s+(Date Filed|Issue Date):/";
 
-	#note that the alias name search only captures a maximum of six aliases.  
-	# This is because if you do this: /^Alias Name\r?\n(?:(^.+)\r?\n)*/m, only the last alias will be stored in $1.  
+	#note that the alias name search only captures a maximum of six aliases.
+	# This is because if you do this: /^Alias Name\r?\n(?:(^.+)\r?\n)*/m, only the last alias will be stored in $1.
 	# What a crock!  I can't figure out a way around this
-	protected static $aliasNameStartSearch = "/^Alias Name/"; // \r?\n(?:(^.+)\r?\n)(?:(^.+)\r?\n)?(?:(^.+)\r?\n)?(?:(^.+)\r?\n)?(?:(^.+)\r?\n)?(?:(^.+)\r?\n)?/m"; 
+	protected static $aliasNameStartSearch = "/^Alias Name/"; // \r?\n(?:(^.+)\r?\n)(?:(^.+)\r?\n)?(?:(^.+)\r?\n)?(?:(^.+)\r?\n)?(?:(^.+)\r?\n)?(?:(^.+)\r?\n)?/m";
 	protected static $aliasNameEndSearch = "/CASE PARTICIPANTS/";
 	protected static $endOfPageSearch = "/(CPCMS|AOPC)\s\d{4}/";
 
@@ -144,36 +146,36 @@ class Arrest
 	protected static $PIDSearch = "/PID\s+(\d+)/i";
 	protected static $nameSearch = "/^Defendant\s+(.*), (.*)/";
     protected static $juvenileNameSearch = "/In the interest of:\s+(.*), a Minor/i";
-      
+
 	// ($1 = charge, $2 = disposition, $3 = grade, $4 = code section
 	protected static $chargesSearch = "/\d\s+\/\s+(.*[^Not])\s+(Not Guilty|Guilty|Nolle Prossed|Nolle Prossed \(Case Dismissed\)|Nolle Prosequi - Administrative|Guilty Plea|Guilty Plea - Negotiated|Guilty Plea - Non-Negotiated|Withdrawn|Withdrawn - Administrative|Charge Changed|Held for Court|Community Court Program|Dismissed - Rule 1013 \(Speedy|Dismissed - Rule 600 \(Speedy|Dismissed - LOP|Dismissed - LOE|Dismissed - Rule 546|Dismissed - Rule 586|Dismissed|Demurrer Sustained|ARD - County Open|ARD - County|ARD|Transferred to Another Jurisdiction|Transferred to Juvenile Division|Quashed|Summary Diversion Completed|Judgment of Acquittal \(Prior to)\s+(\w{0,2})\s+(\w{1,2}\s?\x{A7}\s?\d+(\-|\x{A7}|\w+)*)/u"; // removed "Replacement by Information"
-	// explanation: .+? - the "?" means to do a lazy match of .+, so it isn't greedy.  THe match of 12+ spaces handles the large space after the charges and after the disposition before the next line.  The final part is to match the code section that is violated.	
+	// explanation: .+? - the "?" means to do a lazy match of .+, so it isn't greedy.  THe match of 12+ spaces handles the large space after the charges and after the disposition before the next line.  The final part is to match the code section that is violated.
 	/* longer explanation
 		\d\s+\/\s+ - matches "1 / "
-		
+
 		(.+)\s{12,} - matches the charge name followed by a very large space (up to the disposition) and captures the charge name
-		
+
 		(\w.+?)(?=\s\s) - matches the disposition.  A word character followed by ANY string of characters (non-greedy), that is ultimately followed by two spaces.  In other words, we capture "Nolle prossed   " and "Withdrawn" both.
-		
+
 		\s{12,} - big space
-		
+
 		\w{0,2})\s+ - If there is a grading, it will be caught here.  If there isn't, this area will be ignored
-		
+
 		(\w{1,2}\s?\x{A7}\s? - 1-2 word characters followed by the section symbol, potentially with spaces around the section symbol.  This is to capture the beginning of a statute - "18 s "
-		
+
 		\d+ - a number or series of numbers
-		
+
 		(\-|\x{A7}|\w+)*) - followed by either a "-" a section symbol, or a series of word characters, all 0+ times.  This is the clean up at the end of the code section, for example, a code section may be listed as 18 § 2701 §§ A.  This would capture the final ss and the A
-	*/ 
+	*/
 	protected static $chargesSearch2 = "/\d\s+\/\s+(.+)\s{12,}(\w.+?)(?=\s\s)\s{12,}(\w{0,2})\s+(\w{1,2}\s?\x{A7}\s?\d+(\-|\x{A7}|\w+)*)/u";
-	protected static $ignoreDisps = array("Proceed to Court", "Proceed to Court (Complaint", "Proceed to Court (Complaint Refiled)", "Proceed to Court (SDP)");	
-	
+	protected static $ignoreDisps = array("Proceed to Court", "Proceed to Court (Complaint", "Proceed to Court (Complaint Refiled)", "Proceed to Court (SDP)");
+
 	// $1 = code section, $3 = grade, $4 = charge, $5 = offense date, $6 = disposition
 	protected static $mdjChargesSearch = "/^\s*\d\s+((\w|\d|\s(?!\s)|\-|\x{A7}|\*)+)\s{2,}(\w{0,2})\s{2,}([\d|\D]+)\s{2,}(\d{1,2}\/\d{1,2}\/\d{4})\s{2,}(\D{2,})/u";
-	
+
 	protected static $chargesSearchOverflow = "/^\s+(\w+\s*\w*)\s*$/";
 	// disposition date can appear in two different ways (that I have found) and a third for MDJ cases:
-	// 1) it can appear on its own line, on a line that looks like: 
+	// 1) it can appear on its own line, on a line that looks like:
 	//    Status   mm/dd/yyyy    Final  Disposition
 	//    Trial   mm/dd/yyyy    Final  Disposition
 	//    Preliminary Hearing   mm/dd/yyyy    Final  Disposition
@@ -181,17 +183,17 @@ class Arrest
 	// 2) on the line after the charge disp
 	// 3) for MDJ cases, disposition date appears on a line by itself, so it is easier to find
 	protected static $dispDateSearch = "/(?:Plea|Status|Status of Restitution|Status - Community Court|Status Listing|Migrated Dispositional Event|Trial|Preliminary Hearing|Pre-Trial Conference)\s+(\d{1,2}\/\d{1,2}\/\d{4})\s+Final Disposition/";
-	protected static $dispDateSearch2 = "/(.*)\s(\d{1,2}\/\d{1,2}\/\d{4})/";	
+	protected static $dispDateSearch2 = "/(.*)\s(\d{1,2}\/\d{1,2}\/\d{4})/";
 
 	protected static $dischargeDateSearch = "/^\d?\s*(\d{1,2}\/\d{1,2}\/\d{4})$/";
 
-	// this is a crazy one.  Basically matching whitespace then $xx.xx then whitespace then 
+	// this is a crazy one.  Basically matching whitespace then $xx.xx then whitespace then
 	// -$xx.xx, etc...  The fields show up as Assesment, Payment, Adjustments, Non-Monetary, Total
 	protected static $costsSearch = "/Totals:\s+\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})/";
 	protected static $bailSearch = "/Bail.+\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})/";
 	public function __construct () {}
-	
-	
+
+
 	//getters
 	public function getMDJDistrictNumber() { return $this->mdjDistrictNumber; }
 	public function getCounty() { if (!isset($this->county)) $this->setCounty(self::$unknownInfo); return $this->county; }
@@ -229,23 +231,22 @@ class Arrest
 	public function getIsARDExpungement()  { return $this->isARDExpungement; }
 	public function getIsExpungement()  { return $this->isExpungement; }
 	public function getIsRedaction()  { return $this->isRedaction; }
-	public function getIsSealable()  { return $this->isSealable; }
 	public function getIsHeldForCourt()  { return $this->isHeldForCourt; }
 	public function getIsOnlyHeldForCourt()  { return $this->isOnlyHeldForCourt; }
 	public function getIsSummaryArrest()  { return $this->isSummaryArrest; }
-    public function getSealableMaybeReasons() { return $this->sealableMaybeReasons; }
 	public function getIsMDJ() { return $this->isMDJ; }
 	public function getIsJuvenilePhilly() { return $this->isJuvenilePhilly; }
 	public function getPDFFile() { return $this->pdfFile;}
 	public function getPDFFileName() { return $this->pdfFileName;}
 	public function getAliases() { return $this->aliases; }
-		
+	public function getIsCleanSlateEligible() { return $this->isCleanSlateEligible; }
+
 	//setters
 	public function setMDJDistrictNumber($mdjDistrictNumber) { $this->mdjDistrictNumber = $mdjDistrictNumber; }
 	public function setCounty($county) { $this->county = ucwords(strtolower($county)); }
-	public function setOTN($OTN) 
-	{ 
-		// OTN could have a "-" before the last digit.  It could also have unnecessary spaces.  
+	public function setOTN($OTN)
+	{
+		// OTN could have a "-" before the last digit.  It could also have unnecessary spaces.
 		// We want to chop that off since it isn't important and messes up matching of OTNs
 		$this->OTN = str_replace(" ", "", str_replace("-", "", $OTN));
 	}
@@ -255,12 +256,12 @@ class Arrest
 	public function setSID($SID) { $this->SID = $SID; }
 	public function setPID($PID) { $this->PID = $PID; }
 	public function setDocketNumber($docketNumber) { $this->docketNumber = $docketNumber; }
-	public function setIsSummaryArrest($isSummaryArrest)  { $this->isSummaryArrest = $isSummaryArrest; } 
+	public function setIsSummaryArrest($isSummaryArrest)  { $this->isSummaryArrest = $isSummaryArrest; }
 	public function setArrestingOfficer($arrestingOfficer) {  $this->arrestingOfficer = ucwords(strtolower($arrestingOfficer)); }
-	
+
 	// when we set the arresting agency, replace any string "PD" with "Police Dept"
 	public function setArrestingAgency($arrestingAgency) {  $this->arrestingAgency = preg_replace("/\bpd\b/i", "Police Dept",$arrestingAgency); }
-	
+
 	public function setArrestDate($arrestDate) {  $this->arrestDate = $arrestDate; }
 	public function setComplaintDate($complaintDate) {  $this->complaintDate = $complaintDate; }
 	public function setJudge($judge) { $this->judge = $judge; }
@@ -286,7 +287,6 @@ class Arrest
 	public function setIsARDExpungement($isARDExpungement)  {  $this->isARDExpungement = $isARDExpungement; }
 	public function setIsExpungement($isExpungement)  {  $this->isExpungement = $isExpungement; }
 	public function setIsRedaction($isRedaction)  {  $this->isRedaction = $isRedaction; }
-	public function setIsSealable($isSealable)  {  $this->isSealable = $isSealable; }
 	public function setIsArrestSummaryExpungement($isSummaryExpungement) { $this->isArrestSummaryExpungement = $isSummaryExpungement; }
 	public function setIsArrestOver70Expungement($isOver70Expungement) { $this->isArrestOver70Expungement = $isOver70Expungement; }
 	public function setIsHeldForCourt($isHeldForCourt)  {  $this->isHeldForCourt = $isHeldForCourt; }
@@ -296,36 +296,37 @@ class Arrest
 	public function setPDFFile($pdfFile) { $this->pdfFile = $pdfFile; }
 	public function setPDFFileName($pdfFileName) { $this->pdfFileName = $pdfFileName; }
 	public function addAlias($a) { $this->aliases[] = $a; }
-	
+	public function setIsCleanSlateEligible($a) { $this->isCleanSlateEligible = $a; }
+
 	// add a Bail amount to an already created bail figure
-	public function addBailTotal($bailTotal) 
-	{  
-		$this->bailTotal = $this->getBailTotal() + $bailTotal; 
-		$this->bailTotalTotal = $this->getBailTotalTotal() + $bailTotal; 
+	public function addBailTotal($bailTotal)
+	{
+		$this->bailTotal = $this->getBailTotal() + $bailTotal;
+		$this->bailTotalTotal = $this->getBailTotalTotal() + $bailTotal;
 	}
-	public function addBailPaid($bailPaid)  
-	{  
-		$this->bailPaid = $this->getBailPaid() + $bailPaid; 
-		$this->bailPaidTotal = $this->getBailPaidTotal() + $bailPaid; 
+	public function addBailPaid($bailPaid)
+	{
+		$this->bailPaid = $this->getBailPaid() + $bailPaid;
+		$this->bailPaidTotal = $this->getBailPaidTotal() + $bailPaid;
 	}
-	public function addBailCharged($bailCharged) 
-	{  
-		$this->bailCharged = $this->getBailCharged() + $bailCharged; 
-		$this->bailChargedTotal = $this->getBailChargedTotal() + $bailCharged; 
+	public function addBailCharged($bailCharged)
+	{
+		$this->bailCharged = $this->getBailCharged() + $bailCharged;
+		$this->bailChargedTotal = $this->getBailChargedTotal() + $bailCharged;
 	}
-	public function addBailAdjusted($bailAdjusted)  
-	{  
-		$this->bailAdjusted = $this->getBailAdjusted() + $bailAdjusted; 
-		$this->bailAdjustedTotal = $this->getBailAdjustedTotal() + $bailAdjusted; 
+	public function addBailAdjusted($bailAdjusted)
+	{
+		$this->bailAdjusted = $this->getBailAdjusted() + $bailAdjusted;
+		$this->bailAdjustedTotal = $this->getBailAdjustedTotal() + $bailAdjusted;
 	}
-	
+
 	// push a single chage onto the charge array
 	public function addCharge($charge) {  $this->charges[] = $charge; }
-	
+
 	// @return the first docket number on the array, which should be the CP or lead docket num
-	public function getFirstDocketNumber() 
+	public function getFirstDocketNumber()
 	{
-		
+
 		if (count($this->getDocketNumber()) > 0)
 		{
 			$docketNumber = $this->getDocketNumber();
@@ -334,7 +335,7 @@ class Arrest
 		else
 			return NULL;
 	}
-	
+
 	// @return true if the arrestRecordFile is a docket sheet, false if it isn't
 	public function isDocketSheet($arrestRecordFile)
 	{
@@ -352,7 +353,7 @@ class Arrest
 		else
 			return false;
 	}
-    
+
     // sets isJuvenilePhilly = true if the arrest RecordFile is a Philly Juvenile Case
     public function checkIsJuvenilePhilly($line)
     {
@@ -365,7 +366,7 @@ class Arrest
           return FALSE;
     }
 
-	
+
 	// reads in a record and sets all of the relevant variable.
 	// assumes that the record is an array of lines, read through the "file" function.
 	// the file should be created by running pdftotext.exe on a pdf of the defendant's arrest.
@@ -381,13 +382,13 @@ class Arrest
 				$this->setMDJDistrictNumber(trim($matches[1]));
 
 		}
-        
+
 		foreach ($arrestRecordFile as $line_num => $line)
 		{
 			// print "$line_num: $line<br/>";
-			
+
 			// do all of the searches that are common to the MDJ and CP/MC docket sheets
-								
+
 			// figure out which county we are in
 			if (preg_match(self::$countySearch, $line, $matches))
 				$this->setCounty(trim($matches[1]));
@@ -396,13 +397,13 @@ class Arrest
 				$this->setCounty(trim($matches[1]));
 				$this->setDispositionDate(trim(($matches[2])));
 			}
-				
+
 			// find the docket Number
 			else if (preg_match(self::$docketSearch, $line, $matches))
 			{
 				$this->setDocketNumber(array(trim($matches[1])));
 
-				// we want to set this to be a summary offense if there is an "SU" in the 
+				// we want to set this to be a summary offense if there is an "SU" in the
 				// docket number.  The normal docket number looks like this:
 				// CP-##-CR-########-YYYY or CP-##-SU-#######-YYYYYY; the latter is a summary
 				// so is CP-##-SU-#######-YYYYYY, a summary appeal of a traffic offense
@@ -416,13 +417,13 @@ class Arrest
 			{
 				$this->setDocketNumber(array(trim($matches[1])));
 			}
-			
+
 			else if (preg_match(self::$OTNSearch, $line, $matches))
 				$this->setOTN(trim($matches[1]));
 
 			else if (preg_match(self::$DCSearch, $line, $matches))
 				$this->setDC(trim($matches[1]));
-			
+
 			// find the arrest date.  First check for agency and arrest date (mdj dockets).  Then check for arrest date alone
 			else if (preg_match(self::$mdjArrestingAgencyAndArrestDateSearch, $line, $matches))
 			{
@@ -430,7 +431,7 @@ class Arrest
 				if (isset($matches[2]))
 					$this->setArrestDate(trim($matches[2]));
 			}
-				
+
 			else if (preg_match(self::$arrestDateSearch, $line, $matches))
 				$this->setArrestDate(trim($matches[1]));
 
@@ -447,16 +448,16 @@ class Arrest
 
 				// then deal with the arresting officer
 				$ao = trim($matches[2]);
-				
-				// if there is no listed affiant or the affiant is "Affiant" then set arresting 
+
+				// if there is no listed affiant or the affiant is "Affiant" then set arresting
 				// officer to "Unknown Officer"
 				// CHANGED 9/5/2013 to be the arresting agency if no known officer
 				if ($ao == "" || !(stripos("Affiant", $ao)===FALSE))
 					// $ao = self::$unknownOfficer;
 					$ao = $this->getArrestingAgency();
-					
+
 				$this->setArrestingOfficer($ao);
-			}	
+			}
 
 			// mdj dockets have the arresting office on a line by himself, as last name, first
 			else if (preg_match(self::$mdjArrestingOfficerSearch, $line, $matches))
@@ -466,11 +467,11 @@ class Arrest
 				$officerArray = explode(",", $officer, 2);
 				if (sizeof($officerArray) > 0)
 					$officer = trim($officerArray[1]) . " " . trim($officerArray[0]);
-				
-				$this->setArrestingOfficer($officer);				
+
+				$this->setArrestingOfficer($officer);
 			}
-				
-			
+
+
 			// the judge name can appear in multiple places.  Start by checking to see if the
 			// judge's name appears in the Judge Assigned field.  If it does, then set it.
 			// Later on, we'll check in the "Final Issuing Authority" field.  If it appears there
@@ -478,28 +479,28 @@ class Arrest
 			else if (preg_match(self::$judgeAssignedSearch, $line, $matches))
 			{
 				$judge = trim($matches[1]);
-				
-				// check to see if this line has "magisterial district judge" in it.  If it does, 
+
+				// check to see if this line has "magisterial district judge" in it.  If it does,
 				// lop off that phrase and then check the next line to see if anything important is on it
 				if (preg_match(self::$magisterialDistrictJudgeSearch, $judge, $judgeMatch))
 				{
 					// first catch the judge
 					$judge = trim($judgeMatch[1]);
-					
+
 					// then check the next line to see if there is anything of interest
 					$i = $line_num+1;
 					if (preg_match(self::$judgeSearchOverflow, $arrestRecordFile[$i], $judgeOverflowMatch))
-						$judge .= " " . trim($judgeOverflowMatch[1]);					
+						$judge .= " " . trim($judgeOverflowMatch[1]);
 				}
-			
+
 				if (!preg_match(self::$migratedJudgeSearch, $judge, $junk))
 					$this->setJudge($judge);
-					
+
 				// if this is an mdj docket, the complaint date will also be on this same line, so we want to search for that as well
 				if (preg_match(self::$mdjComplaintDateSearch, $line, $matches))
 				$this->setComplaintDate(trim($matches[1]));
 			}
-			
+
 			else if (preg_match(self::$judgeSearch, $line, $matches))
 			{
 				// make sure the judge field isn't blank or doesn't equal "migrated"
@@ -507,27 +508,27 @@ class Arrest
 					$this->setJudge(trim($matches[1]));
 			}
 
-            
+
 			else if  (preg_match(self::$DOBSearch, $line, $matches))
 				$this->setDOB(trim($matches[1]));
-			
+
 			else if (preg_match(self::$nameSearch, $line, $matches))
 			{
 				$this->setFirstName(trim($matches[2]));
 				$this->setLastName(trim($matches[1]));
-				
-				// we also want to add all of the names that are on the docket sheets to the alias list. 
+
+				// we also want to add all of the names that are on the docket sheets to the alias list.
 				$person->addAliases(array($this->getLastName() . ", " . $this->getFirstName()));
 			}
 
 			else if (preg_match(self::$dispDateSearch, $line, $matches))
 				$this->setDispositionDate($matches[1]);
-				
+
 			// find aliases.  Only try to do so if we haven't looked for aliases previously.
 			else if (!$this->pastAliases && preg_match(self::$aliasNameStartSearch, $line))
 
 			{
-				
+
 				$i = $line_num+1;
 				while (!preg_match(self::$aliasNameEndSearch, $arrestRecordFile[$i]))
 				{
@@ -543,40 +544,40 @@ class Arrest
 						// first parse out the name from the rest of the alias
 						// The name can be in two forms: one form is just the name on a line; the other is the name, followed by the SSN and SID.
 						$aliasName = explode("  ", trim($arrestRecordFile[$i]),2);
-						
+
 						// then push this onto the alias array
 						$this->addAlias(trim($aliasName[0]));
 					}
-						
+
 					$i++;
 				}
-				
+
 				// once we match the CASE PARTICIPANTS line, we know we are done with this iteration
-				$this->pastAliases = TRUE;				
+				$this->pastAliases = TRUE;
 				// set the aliases on the person object
 				$person->addAliases($this->getAliases());
-			}			
+			}
 			// charges can be spread over two lines sometimes; we need to watch out for that
 			else if (preg_match(self::$chargesSearch2, $line, $matches))
 			{
 				// ignore this charge if it is in the exclusion array
 				if (in_array(trim($matches[2]), self::$ignoreDisps))
 					continue;
-					
+
 				$charge = trim($matches[1]);
 				// we need to check to see if the next line has overflow from the charge.
 				// this happens on long charges, like possession of controlled substance
 				$i = $line_num+1;
-				
+
 				if (preg_match(self::$chargesSearchOverflow, $arrestRecordFile[$i], $chargeMatch))
 				{
 					$charge .= " " . trim($chargeMatch[1]);
 					$i++;
 				}
-	
+
 				// also, knock out any strange multiple space situations in the charge, which comes up sometimes.
 				$charge = preg_replace("/\s{2,}/", " ", $charge);
-			
+
 				// need to grab the disposition date as well, which is on the next line
 				if (isset($this->dispositionDate))
 					$dispositionDate = $this->getDispositionDate();
@@ -588,7 +589,7 @@ class Arrest
 				$charge = new Charge($charge, $matches[2], trim($matches[4]), trim($dispositionDate), trim($matches[3]));
 				$this->addCharge($charge);
 			}
-			
+
 			// match a charge for MDJ
 			else if ($this->getIsMDJ() && preg_match(self::$mdjChargesSearch, $line, $matches))
 			{
@@ -597,14 +598,14 @@ class Arrest
 				// we need to check to see if the next line has overflow from the charge.
 				// this happens on long charges, like possession of controlled substance
 				$i = $line_num+1;
-				
+
 				if (preg_match(self::$chargesSearchOverflow, $arrestRecordFile[$i], $chargeMatch))
 				{
 					$charge .= " " . trim($chargeMatch[1]);
 					$i++;
 				}
 
-				
+
 				// add the charge to the charge array
 				if (isset($this->dispositionDate))
 					$dispositionDate = $this->getDispositionDate();
@@ -612,11 +613,11 @@ class Arrest
 					$dispositionDate = NULL;
 				$charge = new Charge($charge, trim($matches[6]), trim($matches[1]), trim($dispositionDate), trim($matches[3]));
 				$this->addCharge($charge);
-			}			
-			
+			}
+
 			else if (preg_match(self::$bailSearch, $line, $matches))
 			{
-				$this->addBailCharged(doubleval(str_replace(",","",$matches[1])));  
+				$this->addBailCharged(doubleval(str_replace(",","",$matches[1])));
 				$this->addBailPaid(doubleval(str_replace(",","",$matches[2])));  // the amount paid
 				$this->addBailAdjusted(doubleval(str_replace(",","",$matches[3])));
 				$this->addBailTotal(doubleval(str_replace(",","",$matches[5])));  // tot final amount, after all adjustments
@@ -624,47 +625,47 @@ class Arrest
 
 			else if (preg_match(self::$costsSearch, $line, $matches))
 			{
-				$this->setCostsCharged(doubleval(str_replace(",","",$matches[1])));  
+				$this->setCostsCharged(doubleval(str_replace(",","",$matches[1])));
 				$this->setCostsPaid(doubleval(str_replace(",","",$matches[2])));  // the amount paid
 				$this->setCostsAdjusted(doubleval(str_replace(",","",$matches[3])));
 				$this->setCostsTotal(doubleval(str_replace(",","",$matches[5])));  // tot final amount, after all adjustments
 			}
-            
+
             // search for things that only have to do with juvenile cases in philly
             else if ($this->isJuvenilePhilly && preg_match(self::$juvenileNumberSearch, $line, $matches))
                 $this->setJNumber(trim($matches[1]));
-                
+
             else if ($this->isJuvenilePhilly && preg_match(self::$SIDSearch, $line, $matches))
                 $this->setSID(trim($matches[1]));
 
             else if ($this->isJuvenilePhilly && preg_match(self::$PIDSearch, $line, $matches))
                 $this->setPID(trim($matches[1]));
-            
+
             else if ($this->isJuvenilePhilly && preg_match(self::$juvenileNameSearch, $line, $matches))
             {
                 list($first,$last) = explode(" ", trim($matches[1]),2);
                 $this->setFirstName($first);
                 $this->setLastName($last);
             }
-            
+
             // this is sort of a funny one.  the very last bare date entry in the docket is the date
-            // that the case was discharged.  It is on a line by itself and there isn't any 
+            // that the case was discharged.  It is on a line by itself and there isn't any
             // consistent context around the date that could be used to find this final date entry.
             // So rather than search for it, I am going to search for EVERY bare date entry and store
-            // each as the discharge date.  The final one will override all previous and we will have a 
+            // each as the discharge date.  The final one will override all previous and we will have a
             // discharge date!
             else if ($this->isJuvenilePhilly && preg_match(self::$dischargeDateSearch, trim($line), $matches))
                $this->setJDischargeDate(trim($matches[1]));
 		}
-        
+
 	}
-		
-	// Compares two arrests to see if they are part of the same case.  Two arrests are part of the 
+
+	// Compares two arrests to see if they are part of the same case.  Two arrests are part of the
 	// same case if the DC or OTNs match; first check DC, then check OTN.
 	// There are some cases where the OTNs match, but not the DC.  This can happen when:
 	// someone is arrest and charged with multiple sets of crimes; all of these cases go to CP court
 	// but they aren't consolidated.  B/c the arrests happened at the same time, OTN will
-	// be the same on all cases, but the DC numbers will only match from the MC to the CP that 
+	// be the same on all cases, but the DC numbers will only match from the MC to the CP that
 	// follows
 	// Don't match true if we match ourself
 	public function compare($that)
@@ -693,7 +694,7 @@ class Arrest
 		if (!isset($this->dispositionDate) || $this->getDispositionDate() == self::$unknownInfo)
 			$this->setDispositionDate($that->getDispositionDate());
 	}
-	
+
 	//gets the first docket number on the array
 	// Compares $this arrest to $that arrest and determines if they are actually part of the same
 	// case.  Two arrests are part of the same case if they have the same OTN or DC number.
@@ -704,31 +705,31 @@ class Arrest
 	// @param $that = Arrest to combine with $this
 	public function combine($that)
 	{
-		
+
 		// if $this isn't a CP case, then don't combine.  If $that is a CP case, don't combine.
 		if (!$this->isCP() || $that->isCP())
 		{
 			return FALSE;
 		}
-		
+
 		// return false if we don't find something with the same DC or OTN number
 		if (!$this->compare($that))
 			return FALSE;
-		
+
 		// if $that (the MC case) is an expungement itself, then we don't want to combine.
 		// If the MC case was an expungement, then no charges will move up from the MC case
-		// to the associated CP case.  This happens in the following situation: 
+		// to the associated CP case.  This happens in the following situation:
 		// Person is arrested and charged with three different sets of crimes that show up on
 		// 3 different MC cases.  One of the MC cases is completely resolved at the prelim hearing
 		// and charges are dismissed.  The other two MC cases have "held for court" charges
-		// which are brought up to a CP case.  THe CP case OTN will match all three MC cases, but 
+		// which are brought up to a CP case.  THe CP case OTN will match all three MC cases, but
 		// will only have charges from the two MC cases that were "held for court"
 		if ($that->isArrestExpungement())
 			return FALSE;
-		
+
 		// combine docket numbers
 		$this->setDocketNumber(array_merge($this->getDocketNumber(),$that->getDocketNumber()));
-		
+
 		// combine charges.  Only include $that charges that are not "held for court"
 		// The reason for this is that held for court charges will already appear on the CP,
 		// they will just appear with a disposition.  We don't want to include held for court
@@ -747,15 +748,15 @@ class Arrest
 			if (strpos($thatDisp, "Held for Court")===FALSE && strpos($thatDisp, "Waived for Court")===FALSE)
 				$thatChargesNoHeldForCourt[] = $charge;
 		}
-		
+
 		// if $thatChargesNoHeldForCourt[] has less elements than $that->charges, we know that
 		// some charges were disposed of at the lower court level.  In that case, we need to
 		// add the lower court judges in as well on the expungement sheet.
 		// @todo add judges here
 		$this->setCharges(array_merge($this->getCharges(),$thatChargesNoHeldForCourt));
-		
+
 		// combine bail amounts.  This isn't used for the petitions, but it is helpful for later
-		// when we print out the overview of bail.  
+		// when we print out the overview of bail.
 		// Generally speaking, an individual could have a bail assessment on an MC case, even if
 		// all charged went to CP court (this would happen if they failed to appear for a hearing
 		// and then later appeared, were sent to CP court, and were tried there.
@@ -776,10 +777,10 @@ class Arrest
 		return TRUE;
 	}
 
-	
+
 	// @return a comma separated list of all of the dispositions that are on the "charges" array
 	// @param if redactableOnly is true (default) returns only redactable offenses
-	
+
 	public function getDispList($redactableOnly=TRUE)
 	{
 		$disposition = "";
@@ -797,17 +798,17 @@ class Arrest
 		}
 		return $disposition;
 	}
-	
+
 	// @param redactableOnly - boolean defaults to false; if set to true, only returns redactable charges
-	// @return a string holding a comma separated list of charges that are in the charges array; 
+	// @return a string holding a comma separated list of charges that are in the charges array;
 	// @return if "redactableOnly" is TRUE, returns only those charges that are expungeable
-	
+
 	public function getChargeList($redactableOnly=FALSE)
 	{
 		$chargeList = "";
 		foreach ($this->getCharges() as $charge)
 		{
-			// if we are trying to only get the list of "Expungeable" offenses, then 
+			// if we are trying to only get the list of "Expungeable" offenses, then
 			// continue to the next charge if this charge is not Expungeable
 			if ($redactableOnly && !$charge->isRedactable())
 				continue;
@@ -818,8 +819,8 @@ class Arrest
 		return $chargeList;
 	}
 
-	
-	
+
+
 	// returns the age based off of the DOB read from the arrest record
 	public function getAge()
 	{
@@ -841,11 +842,11 @@ class Arrest
 			}
 			else
 				$this->setDispositionDate(self::$unknownInfo);
-		}	
-		
+		}
+
 		return $this->dispositionDate;
 	}
-	
+
 	// @function getBestDispotiionDate returns a dispotition date if available.  Otherwise returns
 	// the arrest date.
 	// @return a date
@@ -857,7 +858,7 @@ class Arrest
 			return $this->getArrestDate();
 	}
 
-	// returns true if this is a criminal offense.  this is true if we see CP|MC-##-CR|SU, 
+	// returns true if this is a criminal offense.  this is true if we see CP|MC-##-CR|SU,
 	// not SA or MD
 	public function isArrestCriminal()
 	{
@@ -895,10 +896,10 @@ class Arrest
 			return FALSE;
 		}
 	}
-	
+
 	// @function isArrestOver70Expungement() - returns true if the petition is > 70yo and they have been arrest
 	// free for at least the last 10 years.
-	// @param arrests - an array of all of the other arrests that we are comparing this to to see if they are 
+	// @param arrests - an array of all of the other arrests that we are comparing this to to see if they are
 	// 10 years arrest free
 	//@ return TRUE if the conditions above are me; FALSE if not
 	public function isArrestOver70Expungement($arrests, $person)
@@ -906,21 +907,21 @@ class Arrest
 		// if already set, then just return the member variable
 		if (isset($this->isArrestOver70Expungement))
 			return $this->isArrestOver70Expungement;
-			
+
 		// return false right away if the petition is younger than 70
 		if ($person->getAge() < 70)
 		{
 			$this->setIsArrestOver70Expungement(FALSE);
 			return FALSE;
-		} 	
+		}
 
 		// also return false right away if there aren't any charges to actually look at
 		if (count($this->getCharges())==0)
 		{
 			$this->setIsArrestOver70Expungement(FALSE);
 			return FALSE;
-		} 	
-		
+		}
+
 		// do an over 70 exp if at least one is not redactible; if this is a regular exp, just do a regular exp
 		// NOTE: THis may be a problem for HELD FOR COURT charges; keep this in mind
 		if ($this->isArrestExpungement())
@@ -928,11 +929,11 @@ class Arrest
 			$this->setIsArrestOver70Expungement(FALSE);
 			return FALSE;
 		}
-		
-		// at this point we know two things: we are over 70 and we need to get non-redactable charges off of 
+
+		// at this point we know two things: we are over 70 and we need to get non-redactable charges off of
 		// the record
-		// Loop through all of the arrests passed in to get the disposition dates or the 
-		// arrest dates if the disposition dates don't exist.  
+		// Loop through all of the arrests passed in to get the disposition dates or the
+		// arrest dates if the disposition dates don't exist.
 		// return false if any of them are within 10 years of today
 
 		$dispDates = array();
@@ -952,11 +953,11 @@ class Arrest
 				return FALSE;
 			}
 		}
-		
+
 		// if we got here, it means there are no five year periods of freedom
 		$this->setIsArrestOver70Expungement(TRUE);
 		return TRUE;
-			
+
 	}
 
     // returns true if any charges on this case ended in conviction
@@ -977,16 +978,16 @@ class Arrest
             return false;
         }
     }
-    
-	// @function isArrestSummaryExpungement - returns true if this is an expungeable summary 
-	// arrest.  
-	// This is true in a slightly more complicated sitaution than the others.  To be a 
+
+	// @function isArrestSummaryExpungement - returns true if this is an expungeable summary
+	// arrest.
+	// This is true in a slightly more complicated sitaution than the others.  To be a
 	// summary expungement a few things have to be true:
 	// 1) This has to be a summary offense, characterized by "SU" in the docket number.
 	// 2) The person must have been found guilty or plead guilty to the charges (if they were
 	// not guilty or dismissed, then there is nothing to worry about - normal expungmenet.
-	// 3) The person must have five years arrest free at any time AFTER the arrest.  
-    // Previously, Commonwealth v. Giulian (Super. Ct. 2015) found that only the 5 years immediately 
+	// 3) The person must have five years arrest free at any time AFTER the arrest.
+    // Previously, Commonwealth v. Giulian (Super. Ct. 2015) found that only the 5 years immediately
     // the following conviction matters, but the PA SCt reversed that in July 2016.
 	// @note - a problem that might come up is if someone has a summary and then is confined in jail
 	// for a long period of time (say 10 years).  This will apear eligible for a summary exp, but
@@ -999,64 +1000,64 @@ class Arrest
 		// if already set, then just return the member variable
 		if (isset($this->isArrestSummaryExpungement))
 			return $this->isArrestSummaryExpungement;
-			
+
 		// return false right away if this is not a summary arrest
 		if (!$this->getIsSummaryArrest())
 		{
 			$this->setIsArrestSummaryExpungement(FALSE);
 			return FALSE;
-		} 	
+		}
 
 		// also return false right away if there aren't any charges to actually look at
 		if (count($this->getCharges())==0)
 		{
 			$this->setIsArrestSummaryExpungement(FALSE);
 			return FALSE;
-		} 	
-		
+		}
+
 		// loop through all of the charges; only do a summary exp if none are redactible
 		// NOTE: THis may be a problem for HELD FOR COURT charges; keep this in mind
 		// NOTE: Is it possible that someone has some not guilty and some guilty for summary charges?
 		// NOTE: 9/25/13: The answer is YES: you can have cases where there are some summary expungements
 		// under 9122(b)(3) and some expungements b/c there are summary not guilties, all mixed
-		// together on the same petition.  I am going to leave the section below in, because to do 
-		// otherwise would be a pain in the ass.  If I remove the below, I have to 
+		// together on the same petition.  I am going to leave the section below in, because to do
+		// otherwise would be a pain in the ass.  If I remove the below, I have to
 		// make sure that even if there is not a 5 year arrest free period, we are still doing expungements
 		// where possible.
-		
-		
+
+
 		$anyConviction = FALSE;
 		// Here is the situation we need to deal with: multiple summary charges, some convictions, some non convictions
-		// In that situation, we still want to call this a summary expungement.  
+		// In that situation, we still want to call this a summary expungement.
 		// In another situation, all charges are expungeable.  THis is not a summary expungement.
 		// In another situation, all of the charges are convictions.  This is potentially a summary expungement.
-		// So we track whether there is any conviction at all.  If there is not, 
+		// So we track whether there is any conviction at all.  If there is not,
 		foreach ($this->getCharges() as $num=>$charge)
 		{
-		
+
 			if ($charge->isSummaryRedactable())
 				$anyConviction = TRUE;
-/*				
+/*
 			if(!$anyConviction && $charge->isSummaryRedactable() )
 			{
 				$this->setIsArrestSummaryExpungement(FALSE);
 				return FALSE;
 			}
-			else 
+			else
 				$anyConviction = TRUE;
 */
 		}
-		
+
 		if (!$anyConviction)
 		{
 			$this->setIsArrestSummaryExpungement(FALSE);
 			return FALSE;
 		}
-			
+
 		// at this point we know two things: summary arrest and the charges are all guilties.
-		// now we need to check to see if they are arrest free for five years.	
-		// Loop through all of the arrests passed in to get the disposition dates or the 
-		// arrest dates if the disposition dates don't exist.  
+		// now we need to check to see if they are arrest free for five years.
+		// Loop through all of the arrests passed in to get the disposition dates or the
+		// arrest dates if the disposition dates don't exist.
 		// Drop dates that are before this date.
 		// Make a sorted array of all of the dates and find the longest gap.
 		$thisDispDate = new DateTime($this->getBestDispositionDate());
@@ -1088,11 +1089,11 @@ class Arrest
 			}
 		}
 
-			
+
 		/********** OLD GIULIAN STUFF BEFORE SCT DECISION RESTORING SANITY TO SUMMARIES***************/
 		// sort the disp array.  Compare the first date (which should be the disp date of this crime)
 		// to the second disp date.  If this is > 5 years, we are in the clear and expungement is proper.
-        /* 
+        /*
 		usort($dispDates, function($a, $b) {
 			if ($a == $b)
 				return 0;
@@ -1105,24 +1106,24 @@ class Arrest
 			return(TRUE);
 		}
 		/**************/
-		
+
 		// if we got here, it means there are no five year periods of freedom
 		$this->setIsArrestSummaryExpungement(FALSE);
 		return FALSE;
-			
+
 	}
-	
+
 
 	// returns true if this is an expungeable arrest.  this is true if no charges are guilty
 	// or guilty plea or held for court.
 	// TODO: There is a problem here, although it rarely comes up.  On MC-51-CR-0040172-2012, which sharon is expunging
-	// right now, there are charges listed twice on the MC: once in an "arraignment"  where the charges are "proceed to court" 
+	// right now, there are charges listed twice on the MC: once in an "arraignment"  where the charges are "proceed to court"
 	// and then again under a prelim hearing where the charges are dismissed.  This function sees the proceed
 	// to court charges and believes that this is a redaction even though it is an expungement.  The question is:
 	// how do I fix this?  This is a rare case, so maybe I don't need to.  I want to be careful of doing something like
-	// ignoring "Proceed to court/held for court" on an MC, b/c then it makes any MC that goes to CP court look like an 
-	// expungement (b/c the EG will ignore the MC's charges that are going up to CP court).  What this does is force the 
-	// EG to keep the MC case separate from the CP rather than combine them.  If MC and CP aren't combined, should I do a 
+	// ignoring "Proceed to court/held for court" on an MC, b/c then it makes any MC that goes to CP court look like an
+	// expungement (b/c the EG will ignore the MC's charges that are going up to CP court).  What this does is force the
+	// EG to keep the MC case separate from the CP rather than combine them.  If MC and CP aren't combined, should I do a
 	// different check for expungement that ignores held for court like charges?  I don't know, but this is a question
 	// for another day.  What I really need to do is rewrite ALL of the logic for the EG expungement engine.
 	public function isArrestExpungement()
@@ -1144,9 +1145,9 @@ class Arrest
 					$this->setIsExpungement(FALSE);
 					return FALSE;
 				}
-				
+
 			}
-			
+
 			// deal with the quirky case where there are no charges on the array.  This happens
 			// rarely where there is a docket sheet that lists charges, but doesn't list
 			// dispositions at all.
@@ -1155,12 +1156,12 @@ class Arrest
 					$this->setIsExpungement(FALSE);
 					return FALSE;
 			}
-			
+
 			$this->setIsExpungement(TRUE);
 			return TRUE;
 		}
 	}
-	
+
 	// returns true if the first docket number starts with "CP"
 	public function isCP()
 	{
@@ -1174,50 +1175,13 @@ class Arrest
 				$this->setIsCP(TRUE);
 				return TRUE;
 			}
-			
+
 			$this->setIsCP(FALSE);
 			return FALSE;
 		}
 	}
 
-	
-    // returns the sealable value of this arrest
-    // 0 is not sealable; 1 is definitely sealable; >1 is maybe sealable;
-    // also collates the reasons why something is potentially sealable in an array, for use in displaying
-    // to the user.
-    // QUESTION To MYSELF: what happens if this is sealable only by virtue of also being expungeable or 
-    // held for court?  I geuss we have to check for that in future logic.
-    public function isArrestSealable()
-    {
-        if (isset($this->isSealable))
-          return $this->getIsSealable();
-        else
-        {
-            $sealable = 1; // default to sealable
-            $charges = $this->getCharges();
-            
-            // if there are no charges recognizable in this case, then it isn't sealable
-            if (count($charges) == 0)
-            {
-                $this->setIsSealable(0);
-                return 0;
-            }
-            foreach ($charges as $charge)
-            {
-                $chargeSealable = $charge->isSealable();
-                // multiplying!  math!  basically, if any charge isn't seable, the whole sealing fails
-                // under Act 5 of 2016. So multiply all of the sealable ratings together.  If there are
-                // any 0s, then sealable will zero out.  If everythign is a 1, then we can return 1;
-                // if anything is > 1, we'll know that this is a maybe
-                $sealable = $sealable * $chargeSealable;
-                if ($chargeSealable > 1)
-                  $this->sealableMaybeReasons[] = $charge->getSealablePercent();
-            }
-            $this->setIsSealable($sealable);
-            return $this->getIsSealable();
-        }
-    }
-    
+
 	// returns true if this is a redactable offense.  this is true if there are charges that are NOT
 	// guilty or guilty plea or held for court.  returns true for expungements as well.
 	public function isArrestRedaction()
@@ -1241,7 +1205,7 @@ class Arrest
 			return FALSE;
 		}
 	}
-	
+
     // return true only if ALL of the charges are held for court.
     public function isArrestOnlyHeldForCourt()
     {
@@ -1268,8 +1232,8 @@ class Arrest
             return true;
         }
     }
-        
-	// return true if any of the charges are held for court.  this means we are ripe for 
+
+	// return true if any of the charges are held for court.  this means we are ripe for
 	// consolodating with another arrest
 	public function isArrestHeldForCourt()
 	{
@@ -1290,10 +1254,10 @@ class Arrest
 			// if we ever get here, we have no heldforcourt offenses, so return false
 			$this->setIsHeldForCourt(FALSE);
 			return FALSE;
-	
+
 		}
 	}
-	
+
 	// @returns an associative array with court information based on the county name
 	public function getCourtInformation($db)
 	{
@@ -1301,7 +1265,7 @@ class Arrest
 		$table = "court";
 		$column = "county";
 		$value = $this->getCounty();
-		
+
 		if ($this->getIsMDJ() == 1)
 		{
 			$table = "mdjcourt";
@@ -1309,11 +1273,11 @@ class Arrest
 			$value = $this->getMDJDistrictNumber();
 		}
 
-		// sql statements are case insensitive by default		
+		// sql statements are case insensitive by default
 		$query = "SELECT * FROM $table WHERE $table.$column='$value'";
 		$result = $db->query($query);
 
-		if (!$result) 
+		if (!$result)
 		{
 			if ($GLOBALS['debug'])
 				die('Could not get the court information from the DB:' . $db->error);
@@ -1324,29 +1288,29 @@ class Arrest
 		$result->close();
 		return $row;
 	}
-	
-	
+
+
 	public function writeExpungement($inputDir, $outputDir, $person, $attorney, $expungeRegardless, $db)
 	{
         // act 5 petitions use a different template since the wording is very different
-	    if ($_SESSION['act5Regardless'])
+	    if ($_SESSION['sealingRegardless'])
           $docx = new \PhpOffice\PhpWord\TemplateProcessor($inputDir . Arrest::$act5Template);
         else if ($this->isJuvenilePhilly)
             $docx = new \PhpOffice\PhpWord\TemplateProcessor($inputDir . Arrest::$juvenileExpungementTemplate);
         else
             $docx = new \PhpOffice\PhpWord\TemplateProcessor($inputDir . Arrest::$expungementTemplate);
-	    
+
 		if ($GLOBALS['debug'])
 			print ($this->isArrestExpungement() || $this->isArrestSummaryExpungement)?("Performing Expungement"):("Performing Partial Expungement");
-		
+
 		// set attorney variables
 		$docx->setValue("ATTORNEY_HEADER",  htmlspecialchars($attorney->getPetitionHeader(),  ENT_COMPAT, 'UTF-8'));
 		$docx->setValue("ATTORNEY_SIGNATURE",  htmlspecialchars($attorney->getPetitionSignature(), ENT_COMPAT, 'UTF-8'));
-		
+
 
 		// note - we have two name fields - first/last and "real" first/last.  This is because in many cases
 		// the petitioner's name does not appear correctly on the docket sheet.  attorneys complained that they were
-		// being required to assert the incorrect name for their client in the petition.  the caption gets 
+		// being required to assert the incorrect name for their client in the petition.  the caption gets
 		// the name on the docket; the petition body gets the real first name of the individual
 		$docx->setValue("FIRST_NAME",  htmlspecialchars($this->getFirstName(), ENT_COMPAT, 'UTF-8'));
 		$docx->setValue("LAST_NAME", htmlspecialchars($this->getLastName(), ENT_COMPAT, 'UTF-8'));
@@ -1360,7 +1324,7 @@ class Arrest
 		    $docx->setValue("STATE", htmlspecialchars($person->getState(), ENT_COMPAT, 'UTF-8'));
     		$docx->setValue("ZIP", htmlspecialchars($person->getZip(), ENT_COMPAT, 'UTF-8'));
         }
-        
+
 		// if we are not an anon petition, we have to modify the petition a bit
 		if (!$attorney->getIsAnon())
 		{
@@ -1377,20 +1341,20 @@ class Arrest
 			$docx->setValue("ATTORNEY_ELEC_SIG", "______________");
 		}
 
-		
+
 		// set the date.  Format = Month[word] Day[number], Year[4 digit number]
 		$docx->setValue("PETITION_DATE", htmlspecialchars(date("F j, Y"), ENT_COMPAT, 'UTF-8'));
 		// set the type of petition
 		// NOTE: Should I just keep the "else clause" and get rid of the if clause?  I think this handles every case for redaction or expungement.  Why not just test
 		// the expungements and then move on to redaction?  Or test the redaction and write "Expungement" otherwise.
-        
+
         if (!$this->isJuvenilePhilly)
         {
-    		if (($this->isArrestRedaction() && !$this->isArrestExpungement()) && !$this->isArrestOver70Expungement && !$expungeRegardless && !$_SESSION['act5Regardless'])
+    		if (($this->isArrestRedaction() && !$this->isArrestExpungement()) && !$this->isArrestOver70Expungement && !$expungeRegardless && !$_SESSION['sealingRegardless'])
 	    		$docx->setValue("EXPUNGEMENT_OR_REDACTION","Partial Expungement");
-    		else if (!$_SESSION['act5Regardless'] && ($this->isArrestExpungement() || $this->isArrestSummaryExpungement || $this->isArrestOver70Expungement || $expungeRegardless))
+    		else if (!$_SESSION['sealingRegardless'] && ($this->isArrestExpungement() || $this->isArrestSummaryExpungement || $this->isArrestOver70Expungement || $expungeRegardless))
 	    		$docx->setValue("EXPUNGEMENT_OR_REDACTION", "Expungement");
-		
+
     		if ($attorney->getIFP()==1)
 	    		$docx->setValue("IFP_MESSAGE", htmlspecialchars($attorney->getIFPMessage(), ENT_COMPAT, 'UTF-8'));
     		else
@@ -1402,19 +1366,19 @@ class Arrest
         // actually finds all instances of the variable in question, so I don't have to worry about
         // seting value a number of times.
         $aDocketNumbers = $this->getDocketNumber();
-        $docx->cloneRow("CP",count($aDocketNumbers));                                                        
-        $docx->cloneRow("CP",count($aDocketNumbers));                                                        
         $docx->cloneRow("CP",count($aDocketNumbers));
-        
+        $docx->cloneRow("CP",count($aDocketNumbers));
+        $docx->cloneRow("CP",count($aDocketNumbers));
+
         if (!$this->isJuvenilePhilly)
             $docx->cloneRow("CP",count($aDocketNumbers));
-        
-        for ($i=0; $i < count($aDocketNumbers); $i++)                                                                 
-        {                                                                                                       
-            $j = $i+1;                                                                                          
+
+        for ($i=0; $i < count($aDocketNumbers); $i++)
+        {
+            $j = $i+1;
             $docx->setValue("CP#" . $j, htmlspecialchars($aDocketNumbers[$i], ENT_COMPAT, 'UTF-8'));
-        }             
-	    
+        }
+
         if (!$this->isJuvenilePhilly)
         {
     		$aliases = $person->getAliasCommaList();
@@ -1422,19 +1386,19 @@ class Arrest
 		    	$aliases = "None";
     		$docx->setValue("ALIASES", htmlspecialchars($aliases, ENT_COMPAT, 'UTF-8'));
         }
-        
+
 		$docx->setValue("OTN", htmlspecialchars($this->getOTN(), ENT_COMPAT, 'UTF-8'));
 		$docx->setValue("DC", htmlspecialchars($this->getDC(), ENT_COMPAT, 'UTF-8'));
 		// $docx->setValue("PP", $person->getPP()); // PP/PID not needed anymore and we lost secure access
 		$docx->setValue("SSN", htmlspecialchars($person->getSSN(), ENT_COMPAT, 'UTF-8'));
 		$docx->setValue("DOB", htmlspecialchars($this->getDOB(), ENT_COMPAT, 'UTF-8'));
-		
-		
+
+
 		// setting the disposition list is different dependingo on what type of expungement
 		// this is.  An ARD will say that the ard was completed; a summary might say something else
 		// and a regular expungement/redaction will say the actual dispositions
 		// if this is an ard expungement
-		
+
 		if ($this->isArrestARDExpungement())
 		{
 			$docx->setValue("DISPOSITION_LIST", htmlspecialchars($this->getDispList(), ENT_COMPAT, 'UTF-8'));
@@ -1449,13 +1413,13 @@ class Arrest
 			$docx->setValue("SUMMARY_EXTRA", htmlspecialchars(" and the Petitioner is over 70 years old has been free of arrest or prosecution for ten years following from completion the sentence", ENT_COMPAT, 'UTF-8'));
 		}
         // these fields don't exist on act5 petitions
-	    else if ($_SESSION['act5Regardless'])
+	    else if ($_SESSION['sealingRegardless'])
           ;
-        
+
         // these fields don't exist on juvenile expungement petitions
         else if ($this->isJuvenilePhilly)
           ;
-        
+
 		else if ($this->isArrestSummaryExpungement)
 		{
 			$docx->setValue("DISPOSITION_LIST", htmlspecialchars("summary convictions", ENT_COMPAT, 'UTF-8'));
@@ -1468,7 +1432,7 @@ class Arrest
 			$docx->setValue("ARD_EXTRA", "");
 			$docx->setValue("SUMMARY_EXTRA", "");
 		}
-		
+
 
 		// for costs, we have to subtract out any effect that bail may have had on the costs and fines.  The rules only require
 		// that we tell the court costs and fines accrued and paid off, not bail accrued and paid off
@@ -1477,7 +1441,7 @@ class Arrest
     		$docx->setValue("TOTAL_FINES", htmlspecialchars("$" . number_format($this->getCostsCharged() - $this->getBailCharged(),2), ENT_COMPAT, 'UTF-8'));
 	    	$docx->setValue("FINES_PAID", htmlspecialchars("$" . number_format($this->getCostsPaid() + $this->getCostsAdjusted() - $this->getBailPaid() - $this->getBailAdjusted(),2), ENT_COMPAT, 'UTF-8'));
 		}
-        
+
 		// if judge exists, then write "Judge $judge"; otherwise write "Unknown Judge"
 		$tempJudge = (isset($this->judge) && $this->getJudge() != "") ? "Judge " . $this->getJudge() : "Unknown Judge";
 		$docx->setValue("JUDGE", htmlspecialchars($tempJudge, ENT_COMPAT, 'UTF-8'));
@@ -1493,33 +1457,33 @@ class Arrest
             else
         		$docx->setValue("ARREST_COMPLAINT_DATE", "Arrest Date: N/A");
         }
-          
+
 
 		$docx->setValue("ARREST_DATE", htmlspecialchars($this->getArrestDate(), ENT_COMPAT, 'UTF-8'));
 		$docx->setValue("AFFIANT", htmlspecialchars($this->getArrestingOfficer(), ENT_COMPAT, 'UTF-8'));
 
 //		if ($this->isArrestRedaction() && !$this->isArrestExpungement())
 //			$docx->setValue("EXPUNGEABLE_CHARGE_LIST", $this->getChargeList(TRUE));
-		
-		
+
+
         if (!$this->isJuvenilePhilly)
     		$docx->setValue("COUNTY", htmlspecialchars($this->getCounty(), ENT_COMPAT, 'UTF-8'));
-	
+
         $docx->setValue("ARRESTING_AGENCY", htmlspecialchars($this->getArrestingAgency(), ENT_COMPAT, 'UTF-8'));
 
-        // in montgomery county, we have to put the actual address of the arresting agency, which is 
-        // stored in the db.  in other counties, we just need to write the name of the county as the 
+        // in montgomery county, we have to put the actual address of the arresting agency, which is
+        // stored in the db.  in other counties, we just need to write the name of the county as the
         // address of the arresting agency
         if ($this->getCounty()=="Montgomery")
     		$docx->setValue("AGENCY_ADDRESS", htmlspecialchars($this->getAgencyAddress(), ENT_COMPAT, 'UTF-8'));
         else
         	$docx->setValue("AGENCY_ADDRESS", htmlspecialchars($this->getCounty(), ENT_COMPAT, 'UTF-8') . " County, PA");
-        
+
         if (!$this->isJuvenilePhilly)
     		$docx->setValue("COMPLAINT_DATE", htmlspecialchars($this->getComplaintDate(), ENT_COMPAT, 'UTF-8'));
 
 		$mdjNumberForTemplate = "";
-        
+
         if (!$this->isJuvenilePhilly)
         {
     		if ($this->getIsMDJ() == 1)
@@ -1540,7 +1504,7 @@ class Arrest
 	    		// if this is an mdj case, put the MDJ court in the list, right after the clerk of courts
 		    	array_splice($agencies,1,0,"Magisterial District Court {$this->getMDJDistrictNumber()}");
 
-		
+
             $docx->cloneRow("AGENCY_NAME",count($agencies));
 	    	for ($i=0; $i < count($agencies); $i++)
 		    {
@@ -1548,22 +1512,22 @@ class Arrest
     			$docx->setValue("AGENCY_NAME#" . $j, htmlspecialchars($j . ". " . $agencies[$i], ENT_COMPAT, 'UTF-8'));
 	    	}
 
-	    
+
     		$courtInformation = $this->getCourtInformation($db);
-        
-            // put all court information together into one block.  If there isn't any court information, 
+
+            // put all court information together into one block.  If there isn't any court information,
             // this allows as few newlines as possible in the petition and order that are generated
             $formattedCourtInformation = "";
-            if (!empty($courtInformation['courtName'])) 
-            {   
+            if (!empty($courtInformation['courtName']))
+            {
                 $formattedCourtInformation = $courtInformation['courtName'] . "\r\n";
                 $formattedCourtInformation .= $courtInformation['address'] . ' ' . $courtInformation['address2'] . "\r\n";
                 $formattedCourtInformation .= $courtInformation['city'] . ", " . $courtInformation['state'] . ' ' . $courtInformation['zip'];
             }
-    		$docx->setValue("COURT_INFORMATION", htmlspecialchars($formattedCourtInformation, ENT_COMPAT, 'UTF-8')); 
+    		$docx->setValue("COURT_INFORMATION", htmlspecialchars($formattedCourtInformation, ENT_COMPAT, 'UTF-8'));
 
-		
-            // if this isn't philadelphia, say that the CHR is attached.  
+
+            // if this isn't philadelphia, say that the CHR is attached.
     		if ($this->getCounty()!="Philadelphia")
             {
                 // we also don't include the CHR for ARD expungements in Montco
@@ -1573,19 +1537,19 @@ class Arrest
             }
     		else
     			$docx->setValue("INCLUDE_CHR", "Pursuant to local practice, the Commonwealth agrees to waive the requirement of attachment to this Petition of a current copy of the petitioner’s Pennsylvania State Police criminal history report.  This waiver may be revoked by the Commonwealth in any case and at any time prior to the granting of the relief requested.");
-		
+
 	    	// if this is a summary arrest or this is an MDJ case,  this is a 490 petition
 		    // otherwise it is a 790 petition
-    		// NOTE: 12/2013: Previously the first part of the if statement checked if 
+    		// NOTE: 12/2013: Previously the first part of the if statement checked if
 	    	// this was a summary expungement, not a summary arrest.  There is some uncertainty regarding
     		// whether the 490 or 790 rule is the proper one under which to do expungements of summary offenses
 	    	// that are dropped, not convictions.  But the court wants 490 petitions in that case
     		// so now all SU cases are going to be summary expungements under 490.
-            if (!$_SESSION['act5Regardless'])
+            if (!$_SESSION['sealingRegardless'])
             {
 	    	    if ($this->getIsSummaryArrest() || $this->getIsMDJ() == 1)
 		    	    $docx->setValue("490_OR_790", "490");
-		        else   
+		        else
     			    $docx->setValue("490_OR_790", "790");
     /*
         		// add in extra order information for CREP
@@ -1594,35 +1558,32 @@ class Arrest
 	    		    $crepOrderLanguage = "All criminal justice agencies upon whom this order is served also are enjoined from disseminating to any non-criminal justice agency any and all criminal history record information ordered to be expunged/redacted pursuant to this Order unless otherwise permitted to do so pursuant to the Criminal History Information Records Act.  ";
     	    		$docx->setValue("CREP_EXTRA_ORDER_LANGUAGE", htmlspecialchars($crepOrderLanguage, ENT_COMPAT, 'UTF-8'));
 	    	    }
-     
+
     		    else
      */
 	    		    $docx->setValue("CREP_EXTRA_ORDER_LANGUAGE", "");
             }
         }
-        
+
         // hacky; should create a getExpungeable Charges function instead
 		$i=0;
-	    
+
 	    // first count the number of expungeable charges
 	    foreach ($this->getCharges() as $charge)
 		{
-            
-            // testing!!! xxx
-            //print "<br /> " . $charge->getCodeSection() . " | " . $charge->getGrade() . " | " . $charge->getDisposition() . " | " . strval($charge->isSealable()) . " | " . $charge->getSealablePercent();
-            
-			if (!$this->isArrestOver70Expungement && !$expungeRegardless && !$_SESSION['act5Regardless'] && !$this->isJuvenilePhilly)
+
+			if (!$this->isArrestOver70Expungement && !$expungeRegardless && !$_SESSION['sealingRegardless'] && !$this->isJuvenilePhilly)
 			{
 				if (!$this->isArrestSummaryExpungement && !$charge->isRedactable())
 					continue;
-				// removed 9/25/2013 to make it so summary expungements can have summary redactable and 
+				// removed 9/25/2013 to make it so summary expungements can have summary redactable and
 				// regular redactable charges on them.
-				//if ($this->isArrestSummaryExpungement && !$charge->isSummaryRedactable()) 
+				//if ($this->isArrestSummaryExpungement && !$charge->isSummaryRedactable())
 				//	continue;
 			}
 		    $i = $i+1;
 		}
-	        
+
         // now clone the table row the correct number of times and make substitutions
         // Do the clone twice--once to get the table in the petition and once in the order
 		if ($i>0)
@@ -1630,17 +1591,17 @@ class Arrest
 	          $docx->cloneRow('CODE_SEC',$i);
 	          $docx->cloneRow('CODE_SEC',$i);
         }
-        
+
 		$j = 1;
-        foreach ($this->getCharges() as $charge)                                                        
-	    {                                                                                               
-		    if (!$this->isArrestOver70Expungement && !$expungeRegardless && !$_SESSION['act5Regardless'] && !$this->isJuvenilePhilly)
-		    {                                                                                      
-			    if (!$this->isArrestSummaryExpungement && !$charge->isRedactable())             
-			        continue;                                                               
-		    }                                                                                       
-		    	    
-			
+        foreach ($this->getCharges() as $charge)
+	    {
+		    if (!$this->isArrestOver70Expungement && !$expungeRegardless && !$_SESSION['sealingRegardless'] && !$this->isJuvenilePhilly)
+		    {
+			    if (!$this->isArrestSummaryExpungement && !$charge->isRedactable())
+			        continue;
+		    }
+
+
 		    // sometimes disp date isn't associated with a charge.  If not, just use the disposition
 		    // date of the whole shebang.  It is a good guess, at the very least.
 		    $dispDate = $charge->getDispDate();
@@ -1659,8 +1620,8 @@ class Arrest
 		    $docx->setValue("DISP_DATE#" . $j, htmlspecialchars($dispDate, ENT_COMPAT, 'UTF-8'));
 		    $j = $j+1;
 		}
-        
-        
+
+
         // update the variables specific to juvenile cases
         if ($this->isJuvenilePhilly)
         {
@@ -1671,11 +1632,11 @@ class Arrest
             $docx->setValue("PPID", htmlspecialchars($this->getPID(), ENT_COMPAT, 'UTF-8'));
             //print "PID: " . $this->getPID();
         }
-		
+
 		// save template to file
 		$outputFile = $outputDir . $this->getFirstName() . $this->getLastName() . $this->getFirstDocketNumber();
-		if ($_SESSION['act5Regardless'])
-            $outputFile .= "Act5Sealing";
+		if ($_SESSION['sealingRegardless'])
+            $outputFile .= "Sealing";
         else if ($this->isArrestARDExpungement())
 			$outputFile .= "ARDExpungement";
         else if ($this->isJuvenilePhilly)
@@ -1697,12 +1658,12 @@ class Arrest
 	public function writeIFP($templateDir, $person, $attorney)
 	{
         $docx = new \PhpOffice\PhpWord\TemplateProcessor($templateDir . Arrest::$IFPTemplate);
-		
+
 		if ($GLOBALS['debug'])
 			print "Writing IFP Template.";
-        
+
         $this->writeHeader($docx, $person, $attorney);
-        
+
 		// output the file for later pickup
 		$outputFile = $GLOBALS["dataDir"] . $this->getFirstName() . $this->getLastName() . $this->getFirstDocketNumber() . "IFP.docx";
 		$docx->saveAs($outputFile);
@@ -1713,7 +1674,7 @@ class Arrest
     public function writeCOS($templateDir, $person, $attorney)
 	{
         $docx = new \PhpOffice\PhpWord\TemplateProcessor($templateDir . Arrest::$COSTemplate);
-		
+
 		if ($GLOBALS['debug'])
 			print "Writing COS Template.";
 
@@ -1726,11 +1687,11 @@ class Arrest
 		$docx->saveAs($outputFile);
 		return $outputFile;
     }
-    
+
     // takes a docx object and writes out the basic petition header information
     private function writeHeader($docx, $person, $attorney)
     {
-		// set attorney and client vars 
+		// set attorney and client vars
         $docx->setValue("ATTORNEY_HEADER", htmlspecialchars($attorney->getPetitionHeader(), ENT_COMPAT, 'UTF-8'));
 		$docx->setValue("ATTORNEY_FIRST", htmlspecialchars($attorney->getFirstName(), ENT_COMPAT, 'UTF-8'));
 		$docx->setValue("ATTORNEY_LAST", htmlspecialchars($attorney->getLastName(), ENT_COMPAT, 'UTF-8'));
@@ -1750,19 +1711,19 @@ class Arrest
 		$docx->setValue("COUNTY", htmlspecialchars($this->getCounty(), ENT_COMPAT, 'UTF-8'));
 		$today = new DateTime();
 		$docx->setValue("ORDER_YEAR", $today->format('Y'));
-		
-        // set the docket numbers on the petition.  
+
+        // set the docket numbers on the petition.
         $aDocketNumbers = $this->getDocketNumber();
         $docx->cloneRow("CP",count($aDocketNumbers));
-        for ($i=0; $i < count($aDocketNumbers); $i++)  
-        {                                                                             
+        for ($i=0; $i < count($aDocketNumbers); $i++)
+        {
             $j = $i+1;
             $docx->setValue("CP#" . $j, htmlspecialchars($aDocketNumbers[$i], ENT_COMPAT, 'UTF-8'));
 	    }
-        
+
 	}
-	
-	
+
+
 	public function simplePrint()
 	{
 		echo "<div>Docket #:";
@@ -1797,15 +1758,15 @@ class Arrest
 		echo "Costs Paid: " . $this->getCostsPaid();
 		echo "</div>";
 	}
-	
-					
+
+
 	public function writeExpungementToDatabase($person, $attorney, $db, $saveDocketSheet)
 	{
 		// the defendant has already been inserted
 		// next insert the arrest, which includes the defendant ID
 		// next insert each charge, which includes the arrest id and the defendant ID
 		// finally insert the expungement, which includes the arrest id, the defendant id, the chargeid, the userid, and a timestamp
-		
+
 		$defendantID = $person->getPersonID();
 		$attorneyID = $attorney->getUserID();
 		$arrestID = $this->writeArrestToDatabase($defendantID, $db);
@@ -1814,13 +1775,13 @@ class Arrest
 			$expungementID = $this->writeExpungementDataToDatabase($arrestID, $defendantID, $attorneyID, $db);
 		else
 			$expungementID = "NULL";
-			
+
 		$numRedactableCharges = 0;
 		foreach ($this->getCharges() as $charge)
 		{
 			// if the charge isn't redactable, we don't want to include an expungement ID
 			// The expungementID may be placed on other charges from the same arrest.
-			// We use a tempID so that we don't change the value of the main variable each time 
+			// We use a tempID so that we don't change the value of the main variable each time
 			// through the loop.
 			// If we are a redactable charge, increment the counter.
 			$tempExpungementID = $expungementID;
@@ -1828,19 +1789,19 @@ class Arrest
 				$tempExpungementID = "NULL";
 			else
 				$numRedactableCharges++;
-			
+
 			$chargeID = $this->writeChargeToDatabase($charge, $arrestID, $defendantID, $tempExpungementID, $db);
 		}
-		
+
 		$this->updateExpungementWithNumCharges($expungementID, $numRedactableCharges, $db);
-		
+
 		// finally, save the PDF to the database, if there was a pdf file to save
 		if ($saveDocketSheet)
 			$this->writePDFToDatabase($expungementID, $db);
-		
-		
+
+
 	}
-	
+
 	// @return the id of the arrest just inserted into the database
 	// @param $defendantID - the id of the defendant that this arrest concerns
 	// @param $db - the database handle
@@ -1850,17 +1811,17 @@ class Arrest
 			`arrestingOfficer` ,`arrestDate` ,`dispositionDate` ,`judge` ,`costsTotal` ,`costsPaid` ,
 			`costsCharged` ,`costsAdjusted` ,`bailTotal` ,`bailCharged` ,`bailPaid` ,`bailAdjusted` ,
 			`bailTotalToal` ,`bailChargedTotal` ,`bailPaidTotal` ,`bailAdjustedTotal` ,`isARD` ,`isSummary`,
-			`county` ,`policeLocality`) VALUES ('$defendantID', '" . $this->getOTN() . 
-			"', '" . $this->getDC() . "', '" . $this->getFirstDocketNumber() . "', 
-			'" . implode("|", $this->getDocketNumber()) . "', '" . $db->real_escape_string($this->getArrestingOfficer()) . 
-			"', '" . dateConvert($this->getArrestDate()) . "', '" . dateConvert($this->getDispositionDate()) . 
-			"', '" . $db->real_escape_string($this->getJudge()) . "', '" . $this->getCostsTotal() . "', '" 
-			. $this->getCostsPaid() . "', '" . $this->getCostsCharged() . "', '" . $this->getCostsAdjusted() . 
-			"', '" . $this->getBailTotal() . "', '" . $this->getBailCharged() . "', '" . $this->getBailPaid() . 
+			`county` ,`policeLocality`) VALUES ('$defendantID', '" . $this->getOTN() .
+			"', '" . $this->getDC() . "', '" . $this->getFirstDocketNumber() . "',
+			'" . implode("|", $this->getDocketNumber()) . "', '" . $db->real_escape_string($this->getArrestingOfficer()) .
+			"', '" . dateConvert($this->getArrestDate()) . "', '" . dateConvert($this->getDispositionDate()) .
+			"', '" . $db->real_escape_string($this->getJudge()) . "', '" . $this->getCostsTotal() . "', '"
+			. $this->getCostsPaid() . "', '" . $this->getCostsCharged() . "', '" . $this->getCostsAdjusted() .
+			"', '" . $this->getBailTotal() . "', '" . $this->getBailCharged() . "', '" . $this->getBailPaid() .
 			"', '" . $this->getBailAdjusted() . "', '" . $this->getBailTotalTotal() . "', '" .
 			$this->getBailChargedTotal() . "', '" . $this->getBailPaidTotal() . "', '" .
 			$this->getBailAdjustedTotal() . "', '" . $this->getIsARDExpungement() . "', '" .
-			$this->getIsSummaryArrest() . "', '" . $this->getCounty() . "', '" . 
+			$this->getIsSummaryArrest() . "', '" . $this->getCounty() . "', '" .
 			$db->real_escape_string($this->getArrestingAgency()) . "')";
 
 		if ($GLOBALS['debug'])
@@ -1874,7 +1835,7 @@ class Arrest
 		}
 		return $db->insert_id;
 	}
-	
+
 	// @return the id of the charge just inserted into the database
 	// @param $defendantID - the id of the defendant that this arrest concerns
 	// @param $db - the database handle
@@ -1893,7 +1854,7 @@ class Arrest
 		}
 		return $db->insert_id;
 	}
-	
+
 	// @return the expungementID
 	// @param $defendantID - the id of the defendant that this arrest concerns
 	// @param $db - the database handle
@@ -1911,11 +1872,11 @@ class Arrest
 				die('Could not add the expungement to the DB');
 		}
 		return $db->insert_id;
-	
+
 	}
 
 	// @return none
-	// @function updateExpungementWithNumCharges - updates the expungement table with the 
+	// @function updateExpungementWithNumCharges - updates the expungement table with the
 	// number of charges that were expungeable
 	// @param $expungementID The id of the expungement that we want to update.  Will be "NULL" if there is no expungement to update.
 	// @param $numRedactableCharges The number of charges that we want to redact.  Will be zero if there are no charges.
@@ -1923,9 +1884,9 @@ class Arrest
 	public function updateExpungementWithNumCharges($expungementID, $numRedactableCharges, $db)
 	{
 		if ($expungementID != "NULL" && $numRedactableCharges > 0)
-		{		
+		{
 			$sql  = "UPDATE expungement SET numRedactableCharges=$numRedactableCharges WHERE expungementID=$expungementID";
-			
+
 			if (!$db->query($sql))
 			{
 				if ($GLOBALS['debug'])
@@ -1936,32 +1897,32 @@ class Arrest
 		}
 		return;
 	}
-    
-    // @return string 
-    // @function getAgencyAddress() returns the address of the arresting agency.  
+
+    // @return string
+    // @function getAgencyAddress() returns the address of the arresting agency.
     // If there is no match, returns the county and state.
-    
+
     public function getAgencyAddress()
     {
-        
+
         // if there is no arresting agency for some reason, just return the county and exit
         if (empty($this->getArrestingAgency()))
             return ($this->getCounty() . " County, PA");
-        
+
         $query = 'SELECT * FROM Police WHERE MATCH(name) AGAINST("' . $this->getArrestingAgency() . '") LIMIT 1;';
         $result = $GLOBALS['db']->query($query);
 
-        if (!$result)                                                                                    
-        {                                                                                                
-            if ($GLOBALS['debug'])                                                                       
-                die('Could not get the Police information from the DB:' . $db->error);                 
-            else                                            
+        if (!$result)
+        {
+            if ($GLOBALS['debug'])
+                die('Could not get the Police information from the DB:' . $db->error);
+            else
             {
                 //$result->close();
                 return ($this->getCounty() . " County, PA");
             }
-        }                                                                                                
-        
+        }
+
         $address;
         // if there are no results returned, just get the county, otherwise get the full address
         if($result->num_rows > 0)
@@ -1974,21 +1935,21 @@ class Arrest
         $result->close();
         return $address;
     }
-	
+
 	// @return none
-	// @function writePDFToDatabase - writes the PDF docket sheet to the database 
+	// @function writePDFToDatabase - writes the PDF docket sheet to the database
 	// @param $arrestID -  The id of the particular arrest that we are uploading a pdf for.
 	// @param $db - the database handle
 	public function writePDFToDatabase($expungementID, $db)
 	{
 		$file = $this->getPDFFile();
-		
+
 		if (isset($file))
 		{
 		/*
 			$sql = "INSERT INTO arrestPDFDocketSheet (arrestID, size, data) VALUES ('$arrestID', '" .  filesize($file) . "', '" . mysql_real_escape_string (file_get_contents ($file)) . "')";
 			$result = mysql_query($sql, $db);
-			if (!$result) 
+			if (!$result)
 			{
 				if ($GLOBALS['debug'])
 					die('Could not insert the pdf into the DB:' . mysql_error());
@@ -2002,7 +1963,217 @@ class Arrest
 		return;
 	}
 
-	
+	/**
+	* @function checkCleanSlateMurderFelony
+	* @param: none
+	* @return: an associative array in the format charge: message
+	**/
+	public function checkCleanSlateMurderFelony()
+	{
+		// if we've done this before for this case, just return what we have
+		if (isset($this->cleanSlateEligible['MurderF1']))
+			return $this->cleanSlateEligible['MurderF1'];
+
+		foreach ($this->getCharges() as $charge)
+		{
+			$this->cleanSlateEligible['MurderF1'][] = $charge->checkCleanSlateMurderFelony();
+		}
+		return $this->cleanSlateEligible['MurderF1'];
+	}
+
+	/**
+	* @function checkCleanSlatePast10MFConviction
+	* @param: none
+	* @return: an associative array in the format charge: message
+	**/
+	public function checkCleanSlatePast10MFConviction()
+	{
+		// if we've done this before for this case, just return what we have
+		if (isset($this->cleanSlateEligible['Past10MFConviction']))
+			return $this->cleanSlateEligible['Past10MFConviction'];
+
+		// check to see if this conviction is more or less than 10 years old
+		// if it is less than 10, check to see if there is a conviction
+		// if more than 10, return
+		$thisDispDate = new DateTime($this->getBestDispositionDate());
+
+		$dateDiff=($thisDispDate->diff(new DateTime(), TRUE))->y;
+		
+		if ($dateDiff < 10 && $this->isArrestConviction() && !$this->getIsSummaryArrest())
+			$this->cleanSlateEligible['Past10MFConviction'][] = "This case happened less than 10 years ago (".$dateDiff.").";
+
+		else
+			$this->cleanSlateEligible['Past10MFConviction'][] = null ;
+
+		return $this->cleanSlateEligible['Past10MFConviction'];
+	}
+
+
+	/**
+	* @function checkCleanSlatePast15ProhibitedConviction
+	* @param: none
+	* @return: an associative array in the format charge: message
+	**/
+	public function checkCleanSlatePast15ProhibitedConviction()
+	{
+		// if we've done this before for this case, just return what we have
+		if (isset($this->cleanSlateEligible['Past15ProhibitedConviction']))
+			return $this->cleanSlateEligible['Past15ProhibitedConviction'];
+
+		// first check  to see if this is a conviction arrest in the last 15
+		// years
+		$thisDispDate = new DateTime($this->getBestDispositionDate());
+
+		$dateDiff=($thisDispDate->diff(new DateTime(), TRUE))->y;
+		if ($dateDiff < 15 && $this->isArrestConviction() && !$this->getIsSummaryArrest())
+		{
+			foreach ($this->getCharges() as $charge)
+			{
+				$this->cleanSlateEligible['Past15ProhibitedConviction'][] = $charge->checkCleanSlatePast15ProhibitedConviction();
+			}
+		}
+		else
+			$this->cleanSlateEligible['Past15ProhibitedConviction'][] = null;
+
+		return $this->cleanSlateEligible['Past15ProhibitedConviction'];
+	}
+
+	/**
+	* @function checkCleanSlatePast15MoreThanOneM1F
+	* @param: none
+	* @return: an associative array in the format charge: message
+	**/
+	public function checkCleanSlatePast15MoreThanOneM1F()
+	{
+		// if we've done this before for this case, just return what we have
+		if (isset($this->cleanSlateEligible['Past15MoreThanOneM1F']))
+			return $this->cleanSlateEligible['Past15MoreThanOneM1F'];
+
+		// first check  to see if this is a conviction arrest in the last 15
+		// years
+		$thisDispDate = new DateTime($this->getBestDispositionDate());
+
+		$dateDiff=($thisDispDate->diff(new DateTime(), TRUE))->y;
+		if ($dateDiff < 15 && $this->isArrestConviction() && !$this->getIsSummaryArrest())
+		{
+			foreach ($this->getCharges() as $charge)
+			{
+				$this->cleanSlateEligible['Past15MoreThanOneM1F'][] = $charge->checkCleanSlatePast15MoreThanOneM1F();
+			}
+		}
+		else
+			$this->cleanSlateEligible['Past15MoreThanOneM1F'][] = null;
+
+		return $this->cleanSlateEligible['Past15MoreThanOneM1F'];
+	}
+
+	/**
+	* @function checkCleanSlatePast20MoreThanThreeM2M1F
+	* @param: none
+	* @return: an associative array in the format charge: message
+	**/
+	public function checkCleanSlatePast20MoreThanThreeM2M1F()
+	{
+		// if we've done this before for this case, just return what we have
+		if (isset($this->cleanSlateEligible['Past20MoreThanThreeM2M1F']))
+			return $this->cleanSlateEligible['Past20MoreThanThreeM2M1F'];
+
+		// first check  to see if this is a conviction arrest in the last 20
+		// years
+		$thisDispDate = new DateTime($this->getBestDispositionDate());
+
+		$dateDiff=($thisDispDate->diff(new DateTime(), TRUE))->y;
+		if ($dateDiff < 20 && $this->isArrestConviction() && !$this->getIsSummaryArrest())
+		{
+			foreach ($this->getCharges() as $charge)
+			{
+				$this->cleanSlateEligible['Past20MoreThanThreeM2M1F'][] = $charge->checkCleanSlatePast20MoreThanThreeM2M1F();
+			}
+		}
+		else
+			$this->cleanSlateEligible['Past20MoreThanThreeM2M1F'][] = null;
+
+		return $this->cleanSlateEligible['Past20MoreThanThreeM2M1F'];
+	}
+
+	/**
+	* @function checkCleanSlatePast15ProhibitedConviction
+	* @param: none
+	* @return: an associative array in the format charge: message
+	**/
+	public function checkCleanSlatePast20FProhibitedConviction()
+	{
+		// if we've done this before for this case, just return what we have
+		if (isset($this->cleanSlateEligible['Past20FProhibitedConviction']))
+			return $this->cleanSlateEligible['Past20FProhibitedConviction'];
+
+		// first check  to see if this is a conviction arrest in the last 20
+		// years
+		$thisDispDate = new DateTime($this->getBestDispositionDate());
+
+		$dateDiff=($thisDispDate->diff(new DateTime(), TRUE))->y;
+		if ($dateDiff < 20 && $this->isArrestConviction() && !$this->getIsSummaryArrest())
+		{
+			foreach ($this->getCharges() as $charge)
+			{
+				$this->cleanSlateEligible['Past20FProhibitedConviction'][] = $charge->checkCleanSlatePast20FProhibitedConviction();
+			}
+		}
+		else
+			$this->cleanSlateEligible['Past20FProhibitedConviction'][] = null;
+
+		return $this->cleanSlateEligible['Past20FProhibitedConviction'];
+	}
+
+	/**
+	* @function checkCleanSlateHasOutstandingFinesCosts
+	* @param: none
+	* @return: true if there are unpaid costs/fines, false otherwise
+	**/
+	public function checkCleanSlateHasOutstandingFinesCosts()
+	{
+		// if we've done this before for this case, just return what we have
+		if (isset($this->cleanSlateEligible['HasOutstandingFinesCosts']))
+			return $this->cleanSlateEligible['HasOutstandingFinesCosts'];
+
+		// first check  to see if this is a conviction arrest in the last 20
+		// years
+		if (intval($this->getCostsTotal()) > 0)
+			$this->cleanSlateEligible['HasOutstandingFinesCosts'] = TRUE;
+		else
+			$this->cleanSlateEligible['HasOutstandingFinesCosts'] = FALSE;
+
+		return $this->cleanSlateEligible['HasOutstandingFinesCosts'];
+	}
+
+
+	/**
+	* @function checkCleanSlateIsUnsealableOffense
+	* @param: none
+	* @return: an associative array in the format charge: message
+	**/
+	public function checkCleanSlateIsUnsealableOffense()
+	{
+		// if we've done this before for this case, just return what we have
+		if (isset($this->cleanSlateEligible['IsUnsealableOffense']))
+			return $this->cleanSlateEligible['IsUnsealableOffense'];
+
+		// first check  to see if this is a conviction arrest in the last 20
+		// years
+		if ($this->isArrestConviction())
+		{
+			foreach ($this->getCharges() as $charge)
+			{
+				$this->cleanSlateEligible['IsUnsealableOffense'][] = $charge->checkCleanSlateIsUnsealableOffense();
+			}
+		}
+		else
+			$this->cleanSlateEligible['IsUnsealableOffense'][] = null;
+
+		return $this->cleanSlateEligible['IsUnsealableOffense'];
+	}
+
+
 }  // end class arrest
 
 ?>
