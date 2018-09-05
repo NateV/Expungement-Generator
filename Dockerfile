@@ -40,7 +40,7 @@ RUN mkdir -p /var/www/html/data && \
     chown eg_user:eg_user /var/www/html/docketsheets && \
     curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer && \
     mkdir -p /var/www/html/vendor && \
-    chown eg_user:eg_user /var/www/html/vendor
+    chown -R eg_user:eg_user /var/www/html/vendor
 
 USER eg_user:eg_user
 
@@ -55,4 +55,4 @@ RUN cp /var/www/html/TemplateProcessor.php /var/www/html/vendor/phpoffice/phpwor
     chown eg_user:eg_user /var/run/apache2
 
 
-USER eg_user:eg_user
+#USER eg_user:eg_user
