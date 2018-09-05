@@ -6,7 +6,7 @@
 *	The class that describes a criminal charge and has helper functions for detarmining redactibility.
 *
 *	Copyright 2011-2015 Community Legal Services
-* 
+*
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file ehexcept in compliance with the License.
 * You may obtain a copy of the License at
@@ -18,7 +18,7 @@
 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 * See the License for the specific language governing permissions and
 * limitations under the License.
- * 
+ *
  * TODO: Edga case to consider: CP-26-CR-0001501-2015: all charges are dismissed or held for court
  * so it is an expungement, but it appears as a sealable redaction, which is wrong.
 *
@@ -33,46 +33,28 @@ class Charge
 	private $dispDate;
 	private $isRedactable;
 	private $isSummaryRedactable;
-    // 0 if not sealable at all; 1 if definitely sealable (or redactable); 2 if maybe sealable
-    // this allows us to multiply charges together to get a sealable score.  Because anything that isn't
-    // sealable nullifies sealing of any charge anywhere,  you can multiple all charges together.
-    // if the product is 0, that means at least one charge isn't sealable and you can't seal anything.
-    // if the product is 1, that means that all charges are sealable (or redactable), and anything
-    // greater than 1 means that there are some charges that may be sealable but may not be; no charges 
-    // are not sealable
     private $isSealable;
-    private $sealablePercent;
+    private $sealableMessage;
 	private $isARD;
 	private $grade;
-    private static $excludedOffenses = array("2904", "2910", "7507.1", "1801", "2424", "2425", "6318", "6320", "1591", "2243", "2244", "2251", "2260", "2421", "3121", "3123", "3124.1", "3125", "2241", "2242", "2244");
-    private static $excludedOffensesWithSubsection = array("2902" => "b",
-                                                          "2903" => "b",
-                                                          "3124.2" => "a",
-                                                          "3126" => "A1",
-                                                          "3126" => "1", 
-                                                          "6301" => "A1ii", 
-                                                          "6312" => "d", 
-                                                          "3011" => "b", 
-                                                          "3124.2" => "a.2",
-                                                          "3126" => "a2", 
-                                                          "3126" => "a3", 
-                                                          "3126" => "a4", 
-                                                          "3126" => "a5", 
-                                                          "3126" => "a6", 
-                                                          "3126" => "a8", 
-                                                          "5901" => "b1", 
-                                                          "5903" => "a3ii", 
-                                                          "5903" => "a4ii", 
-                                                          "5903" => "a5ii", 
-                                                          "5903" => "a6", 
-                                                          "6312" => "b", 
-                                                          "6312" => "c", 
-                                                          "2901" => "a1", 
-                                                          "3122.1" => "b", 
-                                                          "3124.2" => "a1", 
-                                                          "3126" => "a7", 
-                                                          "4302" => "b"); 
-	
+
+	private static $cleanSlateExcludedOffenses = array("3127", //indecent exposure
+														 "3129", //sexual intercourse with animals
+														 "4915.1", // failure to comply with reg requirements
+														 "4915.2", // failure to comply with reg requirements
+														 "5122", //weapons or implements for escape
+														 "5510", // abuse of corpse
+														 "5515"); // probhibiting paramilitary training
+
+	// these are the offenses defined in 42 PaCS 9799.14 and 9799.55 (there is significant overlap)
+	private static $cleanSlateTieredSexOffenses = array("2901a.1", "2902b",
+					"2903b", "2904", "2910b", "3011b", "3121", "3122.1b", "3123",
+					"3124.1", "3124.2a", "3124.2a.1", "3124.2a2", "3124.2a3",
+					"3125", "3126a1", "3126a2", "3126a3", "3126a4", "3126a5",
+					"3126a6", "3126a7", "3126a8", "4302b", "5902b", "5902b.1",
+					"5903a3ii", "5903a4ii", "5903a5ii", "5903a6", "6301a1ii",
+					"6312", "6318", "6320", "7507.1");
+
 	public function __construct($chargeName, $disposition, $codeSection, $dispDate, $grade)
 	{
 		$this->setChargeName($chargeName);
@@ -81,7 +63,7 @@ class Charge
 		$this->setDispDate($dispDate);
 		$this->setGrade($grade);
 	}
-	
+
 	public function setChargeName($chargeName) { $this->chargeName=$chargeName; }
 	public function setDisposition($disposition) { $this->disposition=$disposition; }
 	public function setCodeSection($codeSection) { $this->codeSection=$codeSection; }
@@ -89,7 +71,6 @@ class Charge
 	public function setIsRedactable($isRedactable) { $this->isRedactable=$isRedactable; }
 	public function setIsSummaryRedactable($isRedactable) { $this->isSummaryRedactable=$isRedactable; }
 	public function setIsSealable($isSealable) { $this->isSealable=$isSealable; }
-    public function setSealablePercent($percent) { $this->sealablePercent = $percent;}
 	public function setIsARD($isARD) { $this->isARD=$isARD; }
 	public function setGrade($grade) { $this->grade=$grade; }
 
@@ -101,22 +82,23 @@ class Charge
 	public function getIsSummaryRedactable() { return $this->isSummaryRedactable; }
 	public function getIsSealable() { return $this->isSealable; }
     public function getSealablePercent() { return $this->sealablePercent; }
+	public function getSealableMessage() { return $this->sealableMessage; }
 	public function getIsARD() { return $this->isARD; }
 	public function getGrade() { if (!isset($this->grade) || $this->grade == "") $this->setGrade("unk"); return $this->grade; }
-	
+
 	public function isRedactable()
 	{
-		
+
 		if (isset($this->isRedactable)) { return $this->getIsRedactable(); }
 		$disp = $this->getDisposition();
-		
-		// "waived for court" appears on some MDJ cases.  It means the same as held for court.
+
+		// "waived for court" appears on some MDJ cases. It means the same as held for court.
 		$nonRedactableDisps = array("Guilty" , "Guilty - Rule 1002", "Guilty Plea", "Guilty Plea - Negotiated", "Guilty Plea - Non-Negotiated", "Guilty Plea (Lower Court)", "Guilty by Trial (Lower Court)", "Held for Court", "Waived for Court", "Waived for Court (Lower Court)", "Held for Court (Lower Court)", "Nolo Contendere", "Found in Contempt");
 		if (in_array($disp, $nonRedactableDisps))
 			$this->setIsRedactable(FALSE);
 		else
 			$this->setIsRedactable(TRUE);
-			
+
 		return $this->getIsRedactable();
 	}
 
@@ -124,7 +106,7 @@ class Charge
 	{
 		if (isset($this->isSummaryRedactable)) { return $this->getIsSummaryRedactable(); }
 		$disp = $this->getDisposition();
-		
+
 		$redactableDisps = array("Guilty" , "Guilty - Rule 1002", "Guilty Plea", "Guilty Plea - Negotiated", "Guilty Plea - Non-Negotiated", "Guilty Plea (Lower Court)", "Nolo Contendere", "Found in Contempt");
 		if (in_array($disp, $redactableDisps))
 			$this->setIsSummaryRedactable(TRUE);
@@ -141,7 +123,7 @@ class Charge
             return false;
 
     }
-    
+
     public function isHeldForCourt()
     {
         if (in_array($this->getDisposition(), array("Held for Court", "Waived for Court", "Waived for Court (Lower Court)", "Held for Court (Lower Court)")))
@@ -149,151 +131,36 @@ class Charge
         else
           return false;
     }
-    
-    // checks whether a charge is sealable.
-    // Returns 0 if it isn't sealable.  0 Would be returned if the charge is contained within a 
-    // list of non-expungeable offenses, defined by Act 5 of 2016.  0 would also be returned if the 
-    // charge is not an M, M3, or M2 (if we know the grade. 
-    // Returns 1 if the charge is definitely sealable.  Definitely sealable offenses have a known grade
-    // of M, M3, or M2, are not in the list of excluded offenses, are not redactable.  Returns 1 also
-    // if the charge is redactable; that makes things easier when checking a slew of charges together.
-    // Returns 2 if the charge may be redactable.  This will generally come up if the grade is unknown.
-    // If the charge is 2, separately sets a field stating what percent of charges in this category
-    // are sealable, based on past data.
-	public function isSealable()
+
+	// queries the database to see what percentage of time this charge is
+	// of $gradeList %; gradeList shoudl be in format ('F1', 'F2', 'F3', 'F', 'M1')
+	public function getCodeSectionGradePercent($gradeList)
 	{
-		if (isset($this->isSealable)) { return $this->getIsSealable(); }
-		
-        // start with the assumption that something is sealable; change that if we figure out that it isn't
-        $this->setIsSealable(1);
-        // if this is redactable, just return 1 and pretend it is sealable as well.
-        // if this isn't a conviction, then return 1 as well.  
-        // When is something not a conviction but also not redactable?  When it is held for court
-        if ($this->isRedactable() || !$this->isConviction()) { $this->setIsSealable(1); return 1; }
+		// look in the database to find this particular code section and see whetherh or not
+		// it is potential and F1
+		$codeSection = preg_split("/\x{A7}+/u", $this->getCodeSection(), -1, PREG_SPLIT_NO_EMPTY);
+		// this means that therew as a problem splitting the codeSection, so return 2
+		if (count($codeSection) == 1)
+			return 'Unknown/unreadable code section';
 
-        // if this case falls into a series of non sealable case types, then return 0
-        $codeSection = preg_split("/\x{A7}+/u", $this->getCodeSection(), -1, PREG_SPLIT_NO_EMPTY);
-        if (count($codeSection) == 1)
-        {
-          // this means that therew as a problem splitting the codeSection, so return 2
-          $this->setSealablePercent("? - unknown code section");
-          $this->setIsSealable(2);
-        }
+		if (count($codeSection) > 2)
+			$sql = "SELECT SUM(Percent_w_Subsection) as P FROM crimes_w_subsection WHERE GRADE in $gradeList AND title='".trim($codeSection[0])."' AND section='".trim($codeSection[1])."' AND subsection like '".trim($codeSection[2])."%'";
+		else
+			$sql = "SELECT SUM(Percent) as P FROM crimes_wo_subsection WHERE Grade in $gradeList AND title='".trim($codeSection[0])."' AND section='".trim($codeSection[1])."'";
 
-        // if this is title 18 and we are in the list of excludable offenses, return 0
-        elseif ((trim($codeSection[0])=="18") && in_array(trim($codeSection[1]), Charge::$excludedOffenses))
-        {
-           $this->setIsSealable(0); 
-            return 0;
-        }
-       
-        // similar to above, but with specific subsection, but only if there is a subsection listed
-        elseif ((count($codeSection)>2) && ((trim($codeSection[0])=="18") && $this->inOffensesWithSubsection(trim($codeSection[1]), trim($codeSection[2]))))
-        {
-            $this->setIsSealable(0); 
-            $this->setSealablePercent("This crime/subsection is one of the exclusionary crimes (but not simple assault)");
-            return 0;
-        }
-        
-        
-        // we have to deal separately with simple assault (2701) b/c it is sometimes and sometimes not sealable
-        elseif ((trim($codeSection[0])=="18") && (trim($codeSection[1])=="2701"))
-        {
-            // simple assault is hanlded different if it is an M3 or an M2.  M3s can be expunged.  M2 are 
-            // exclusionary
-            if ($this->getGrade()=="unk")
-            {
-                $this->setIsSealable(2);
-                $this->setSealablePercent("Unlikely - ungraded simple assault is likely an M2");
-            }
-            elseif ($this->getGrade()=="M3")
-              $this->setIsSealable(1);
-            elseif ($this->getGrade()=="M2")
-            {
-              $this->setIsSealable(0);
-              $this->setSealablePercent("M2 Simple Assault");
-            }
-            else
-            {
-              $this->setIsSealable(0);
-              $this->setSealablePercent("Simple Assault other than M3");
-            }
-            return $this->getIsSealable();
-        }
-       
-        // check the grade of the offense; if it is known, we know whether this is sealable.  If 
-        // the grade is unknown, we have to look the crime up to get a sense as to whether it may be
-        // sealble
-        if (!in_array($this->getGrade(), array("M", "M3", "M2", "S", "unk")))
-          $this->setIsSealable(0);
-        elseif ($this->getGrade()=="unk")
-        {
-            // if sealable is 1, this turns it into 2; if it is 0, this keeps it at 0; if it is more than 2, 
-            // it stays at more than 2
-            $this->setIsSealable($this->getIsSealable() * 2);
-          
-            // now look in the database to find this particular code section and see whetherh or not
-            // it is potential sealable
-            //TODO
-            if (count($codeSection) > 2)
-              $sql = "SELECT Percent_w_Subsection as P FROM crimes_w_subsection WHERE GRADE in ('M', 'M3', 'M2', 'MS') AND title='".trim($codeSection[0])."' AND section='".trim($codeSection[1])."' AND subsection like '".trim($codeSection[2])."%'";
-            else
-              $sql = "SELECT Percent as P FROM crimes_wo_subsection WHERE Grade in ('M', 'M3', 'M2') AND title='".trim($codeSection[0])."' AND section='".trim($codeSection[1])."'";
-            
-            $result = $GLOBALS['chargeDB']->query($sql);
-            if (!$result)
-                $this->setSealablePercent("Unclear; there was an error querying the database $sql");
-            
-            else
-            {
-                $p = mysqli_fetch_assoc($result);
-                $this->setSealablePercent($p['P'] . " of cases with this code section were sealable.");
-            }
+		$result = $GLOBALS['chargeDB']->query($sql);
+		if (!$result)
+			return 'There was a problem querying the DB for this charge';
 
-        }
-            
-            
-        // check the age of the disposition; if it is 8-10 years, set this as a 2; if it is < 8 years,
-        // set this as a 0;
-        $dispDate = new DateTime($this->getDispDate());
-        $today = new DateTime();
-        $age = abs(dateDifference($today, $dispDate));
-        if ($age < 8)
-        {
-            $this->setIsSealable(0);
-            $this->setSealablePercent("The disposition date of this charge (" . $this->getDispDate() . ") is < 8 years old.");
-        }
-        elseif ($age < 10)
-        {
-            $this->setIsSealable($this->getIsSealable() * 2);
-            $this->setSealablePercent("The disposition date of this charge (" . $this->getDispDate() . ") is between 8 and 10 years old");
-        }
+		// return the result as a percentage of charges that were F1
+		else
+		{
+			$p = mysqli_fetch_assoc($result);
+			if (!empty($p['P'])) // if p is empty, then there are no cases that fit the query above
+				return round($p['P'],1);
+		}
+	}
 
-        return $this->getIsSealable();        
-
-
-    }
-     
-    // returns true if the given section and subsection exist in the excludedOffensesWIthSubsection array
-    private function inOffensesWithSubsection($section, $subsection)
-    {
-        // first check the section as a key
-        if (!array_key_exists($section, Charge::$excludedOffensesWithSubsection))
-            return false;
-        // then check the subsection
-        if (stipos(Charge::$excludedOffensesWithSubsection[$section], $subsection)===0)
-          return true;
-        else
-          return false;
-    }
-            
-    public function getSealablePercentFromDB()
-    {
-        // queries the database to see what percent of charges were sealable with this code section
-	    if (isset($this->sealablePercent)) { return $this->sealablePercent; }
-    }
-    
-    
 	public function isARD()
 	{
 		if (isset($this->isARD)) { return $this->getIsARD(); }
@@ -305,6 +172,437 @@ class Charge
 			$this->setIsARD(FALSE);
 		return $this->getIsARD();
 	}
-	
+
+	/**
+	* Checks if the current charge is either murder or a possible F1
+	* and returns an array in the format charge:message
+	* @param: none
+	* @return: an associative array in the format charge: message
+	**/
+	public function checkCleanSlateMurderFelony()
+	{
+		// if this charge is somehow redactable or if it isn't a conviction
+		// then return null right away.
+		if ($this->isRedactable() || !$this->isConviction())
+			return null;
+
+		// get the code section of this case
+        $codeSection = preg_split("/\x{A7}+/u", $this->getCodeSection(), -1, PREG_SPLIT_NO_EMPTY);
+
+		// this means that therew as a problem splitting the codeSection, so return 2
+        if (count($codeSection) == 1)
+          	return array($this->getCodeSection(), 'Unknown/unreadable code section; assuming the worse: possibly murder or an F1');
+
+  		// 18 PaCS 2502 is murder, so this checks to see if we are dealing with a murder conviction
+        if (trim($codeSection[0])=="18" && trim($codeSection[1])=="2502")
+			return array($this->getCodeSection(), 'Murder Conviction');
+
+		// finally, check if this is either an F1 or may be an F1
+		if ($this->getGrade()=="F1")
+			return array($this->getCodeSection(), 'F1 Conviction');
+
+		$percent = $this->getCodeSectionGradePercent("('F1')");
+		if ($this->getGrade()=="unk" && $percent > 0)
+			return array($this->getCodeSection(), $percent . "% of charges like this were F1s.");
+
+		// if we got to here, then the offense isn't F1 or Murder and we can return null
+		return null;
+
+	}
+
+	/**
+	* Checks if the current charge is a conviction for a 15 year prohibited offense
+	* and returns an array in the format charge:message
+	* @param: none
+	* @return: an associative array in the format charge: message
+	**/
+	public function checkCleanSlatePast15ProhibitedConviction()
+	{
+		// for now assume that this happened in the last 15 years, although
+		// maybe we want to change this?
+
+		// if this charge is somehow redactable or if it isn't a conviction
+		// then return null right away.
+		if ($this->isRedactable() || !$this->isConviction())
+			return null;
+
+		// get the code section of this case
+        $codeSection = preg_split("/\x{A7}+/u", $this->getCodeSection(), -1, PREG_SPLIT_NO_EMPTY);
+
+		// this means that therew as a problem splitting the codeSection, so return 2
+        if (count($codeSection) == 1)
+          	return array($this->getCodeSection(), 'Unknown/unreadable code section; assuming the worse: possibly a 15 year excluded offense');
+
+		// if this is title 18 and we are in the list of excludable offenses, return 0
+        elseif ((trim($codeSection[0])=="18") && in_array(trim($codeSection[1]), Charge::$cleanSlateExcludedOffenses))
+        {
+			return array($this->getCodeSection(), '15 Year Prohibited Offense under 9122.1(b)(2)(iii)(B)');
+        }
+
+		// if we got to here, then the offense isn't F1 or Murder and we can return null
+		return null;
+
+	}
+
+	/**
+	* Checks if the current charge is a conviction for an M1, or any F
+	* and returns an array in the format charge:message
+	* @param: none
+	* @return: an associative array in the format charge: message
+	**/
+	public function checkCleanSlatePast15MoreThanOneM1F()
+	{
+		// for now assume that this happened in the last 15 years, although
+		// maybe we want to change this?
+
+		// if this charge is somehow redactable or if it isn't a conviction
+		// then return null right away.
+		if ($this->isRedactable() || !$this->isConviction())
+			return null;
+
+		// first check the grade of the offense
+		$grade = $this->getGrade();
+		if (in_array($grade, array("F1", "F2", "F3", "F", "M1")))
+			return array($this->getCodeSection(), "'" . $grade . "' conviction within the past 15 years.");
+
+		$percent = $this->getCodeSectionGradePercent("('F1', 'F2', 'F3', 'F', 'M1')");
+		if ($this->getGrade()=="unk" && $percent > 0)
+			return array($this->getCodeSection(), $percent . "% of charges like this were M1s or Felonies.");
+
+		// if we got to here, then the offense isn't F1 or Murder and we can return null
+		return null;
+
+	}
+
+
+	/**
+	* Checks if the current charge is a conviction for an M2, M1, or any F
+	* and returns an array in the format charge:message
+	* @param: none
+	* @return: an associative array in the format charge: message
+	**/
+	public function checkCleanSlatePast20MoreThanThreeM2M1F()
+	{
+		// for now assume that this happened in the last 20 years, although
+		// maybe we want to change this?
+
+		// if this charge is somehow redactable or if it isn't a conviction
+		// then return null right away.
+		if ($this->isRedactable() || !$this->isConviction())
+			return null;
+
+		// first check the grade of the offense
+		$grade = $this->getGrade();
+		if (in_array($grade, array("F1", "F2", "F3", "F", "M1", "M2")))
+			return array($this->getCodeSection(), "'" . $grade . "' conviction within the past 20 years.");
+
+		$percent = $this->getCodeSectionGradePercent("('F1', 'F2', 'F3', 'F', 'M1', 'M2')");
+		if ($this->getGrade()=="unk" && $percent > 0)
+			return array($this->getCodeSection(), $percent . "% of charges like this were M2s, M1s, or felonies.");
+
+		// if we got to here, then the offense isn't F1 or Murder and we can return null
+		return null;
+
+	}
+
+	/**
+	* Checks if the current charge is a conviction for a 20 year prohibited offense
+	* and returns an array in the format charge:message
+	* @param: none
+	* @return: an associative array in the format charge: message
+	**/
+	public function checkCleanSlatePast20FProhibitedConviction()
+	{
+		// for now assume that this happened in the last 15 years, although
+		// maybe we want to change this?
+
+		// if this charge is somehow redactable or if it isn't a conviction
+		// then return null right away.
+		if ($this->isRedactable() || !$this->isConviction())
+			return null;
+
+		// check the grade, if known. If it isn't an F (or isn't unknwon),
+		// then we don't care about the conviction.
+		$grade = $this->getGrade();
+		if (!in_array($grade, array("F1", "F2", "F3", "F", "unk")))
+			return null;
+
+		$percent = $this->getCodeSectionGradePercent("('F1', 'F2', 'F3', 'F')");
+		if ($percent==0)
+			return null;
+
+		// get the code section of this case
+		$codeSection = preg_split("/\x{A7}+/u", $this->getCodeSection(), -1, PREG_SPLIT_NO_EMPTY);
+
+		// this means that therew as a problem splitting the codeSection, so return 2
+		if (count($codeSection) == 1)
+			return array($this->getCodeSection(), 'Unknown/unreadable code section; assuming the worse: possibly a 20 year excluded offense');
+
+		// if this is an Article B, D, etc.. crime, add it
+		if ($this->isArticleBCrime())
+		{
+			if ($this->getGrade()=="unk")
+				return array($this->getCodeSection(), 'Article B offense; ' . $percent . "% of the time this is a Felony.");
+			else
+				return array($this->getCodeSection(), "Article B offense with grade of '" . $grade . "'.");
+		}
+
+		if ($this->isArticleDCrime())
+		{
+			if ($this->getGrade()=="unk")
+				return array($this->getCodeSection(), 'Article D offense; ' . $percent . "% of the time this is a Felony.");
+			else
+				return array($this->getCodeSection(), "Article D offense with grade of '" . $grade . "'.");
+		}
+
+		if ($this->isChapter61Crime())
+		{
+			if ($this->getGrade()=="unk")
+				return array($this->getCodeSection(), 'Chapter 61 offense; ' . $percent . "% of the time this is a Felony.");
+			else
+				return array($this->getCodeSection(), "Chapter 61 offense with grade of '" . $grade . "'.");
+		}
+
+		if ($this->isSexRegCrime())
+		{
+			if ($this->getGrade()=="unk")
+				return array($this->getCodeSection(), 'Sec 9799.14/.55 sexual registration offense; ' . $percent . "% of the time this is a Felony.");
+			else
+				return array($this->getCodeSection(), "Sec 9799.14/.55 sexual registration offense with grade of '" . $grade . "'.");
+		}
+
+		// if we got to here, then the offense isn't excluded
+		return null;
+	}
+
+
+
+	/**
+	* Checks if the current charge is a conviction for an unsealable crime
+	* and returns an array in the format charge:message
+	* @param: none
+	* @return: an associative array in the format charge: message
+	**/
+	public function checkCleanSlateIsUnsealableOffense()
+	{
+		// for now assume that this happened in the last 15 years, although
+		// maybe we want to change this?
+
+		// if this charge is somehow redactable or if it isn't a conviction
+		// then return null right away.
+		if ($this->isRedactable() || !$this->isConviction())
+			return null;
+
+		// check the grade, if known. If it isn't an F, an M1 (or isn't unknwon),
+		// then we don't care about the conviction. It is sealable.
+		$grade = $this->getGrade();
+
+		// first check to see if this is a felony, which would make the case
+		// unsealable.
+		if (in_array($grade, array("F1","F2","F3","F")))
+		{
+			$this->isSealable = FALSE;
+			$this->sealableMessage = "Unsealable. $grade conviction.";
+			return array($this->getCodeSection(), $this->sealableMessage);
+		}
+
+		if (!in_array($grade, array("F1", "F2", "F3", "F", "M1", "unk")))
+		{
+			$this->isSealable = TRUE;
+			$this->sealableMessage = "Sealable.";
+			return null;
+		}
+
+		// same as above--never an F/M1, so it is sealable.
+		$percent = $this->getCodeSectionGradePercent("('F1', 'F2', 'F3', 'F', 'M1')");
+		if ($percent==0)
+		{
+			$this->isSealable = TRUE;
+			$this->sealableMessage = "Sealable.";
+			return null;
+		}
+
+		// get the code section of this case
+		$codeSection = preg_split("/\x{A7}+/u", $this->getCodeSection(), -1, PREG_SPLIT_NO_EMPTY);
+
+		// this means that therew as a problem splitting the codeSection, so return 2
+		if (count($codeSection) == 1)
+		{
+			$this->sealableMessage = 'Maybe sealable. Unknown/unreadable code section so assuming the worst.';
+			$this->isSealable = FALSE;
+			return array($this->getCodeSection(), $this->sealableMessage);
+		}
+		// if this is an Article B, D, etc.. crime, add it
+		if ($this->isArticleBCrime())
+		{
+			if ($this->getGrade()=="unk" && $percent==100)
+				$this->sealableMessage = 'Not sealable. Article B offense; ' . $percent . "% of the time this is an F or M1.";
+			else if ($this->getGrade()=="unk")
+				$this->sealableMessage = 'Maybe sealable. Article B offense; ' . $percent . "% of the time this is an F or M1.";
+			else
+				$this->sealableMessage = "Not sealable. Article B offense with grade of '" . $grade . "'.";
+
+			$this->isSealable = FALSE;
+			return array($this->getCodeSection(), $this->sealableMessage);
+		}
+
+		if ($this->isArticleDCrime())
+		{
+			if ($this->getGrade()=="unk" && $percent==100)
+				$this->sealableMessage =  'Not sealable. Article D offense; ' . $percent . "% of the time this is an F or M1.";
+			else if ($this->getGrade()=="unk")
+				$this->sealableMessage =  'Maybe sealable. Article D offense; ' . $percent . "% of the time this is an F or M1.";
+			else
+				$this->sealableMessage = "Not sealable. Article D offense with grade of '" . $grade . "'.";
+
+			$this->isSealable = FALSE;
+			return array($this->getCodeSection(), $this->sealableMessage);
+		}
+
+		if ($this->isChapter61Crime())
+		{
+			if ($this->getGrade()=="unk" && $percent==100)
+				$this->sealableMessage = 'Not sealable. Chapter 61 offense; ' . $percent . "% of the time this is an F or M1.";
+			else if ($this->getGrade()=="unk")
+				$this->sealableMessage = 'Maybe sealable. Chapter 61 offense; ' . $percent . "% of the time this is an F or M1.";
+			else
+				$this->sealableMessage = "Not sealable. Chapter 61 offense with grade of '" . $grade . "'.";
+
+			$this->isSealable = FALSE;
+			return array($this->getCodeSection(), $this->sealableMessage);
+		}
+
+		if ($this->isSexRegCrime())
+		{
+			if ($this->getGrade()=="unk" && $percent==100)
+				$this->sealableMessage = 'Not sealable. Sec 9799.14/.55 sexual registration offense; ' . $percent . "% of the time this is an F or M1.";
+			else if ($this->getGrade()=="unk")
+				$this->sealableMessage = 'Maybe sealable. Sec 9799.14/.55 sexual registration offense; ' . $percent . "% of the time this is an F or M1.";
+			else
+				$this->sealableMessage = "Not sealable. Sec 9799.14/.55 sexual registration offense with grade of '" . $grade . "'.";
+
+			$this->isSealable = FALSE;
+			return array($this->getCodeSection(), $this->sealableMessage);
+		}
+
+		if ($this->isCorruptionOfMinorsCrime())
+		{
+			if ($this->getGrade()=="unk" && $percent==100)
+				$this->sealableMessage = 'Not sealable. Conviction for 18 PaCS 6301a1; ' . $percent . "% of the time this is an F or M1.";
+			if ($this->getGrade()=="unk")
+				$this->sealableMessage = 'Maybe sealable. Conviction for 18 PaCS 6301a1; ' . $percent . "% of the time this is an F or M1.";
+			else
+				$this->sealableMessage = "Not sealable. Conviction for 18 PaCS 6301a1 with grade of '" . $grade . "'.";
+
+			$this->isSealable = FALSE;
+			return array($this->getCodeSection(), $this->sealableMessage);
+		}
+
+		// if it wasn't specifically unsealable, check to see if this is potentially
+		// a felony.
+		$percent = $this->getCodeSectionGradePercent("('F1', 'F2', 'F3', 'F')");
+		if ($percent==100)
+		{
+			$this->isSealable = FALSE;
+			$this->sealableMessage = "Not sealable. " . $percent . "% of the time this is an F.";
+			return array($this->getCodeSection(), $this->sealableMessage);
+		}
+		else if ($percent>0)
+		{
+			$this->isSealable = FALSE;
+			$this->sealableMessage = "Maybe sealable. " . $percent . "% of the time this is an F.";
+			return array($this->getCodeSection(), $this->sealableMessage);
+		}
+
+		// if we got to here, then the offense isn't excluded
+		$this->isSealable = TRUE;
+		$this->sealableMessage = "Sealable.";
+		return null;
+	}
+
+
+
+	public function isArticleBCrime()
+	{
+		$codeSection = preg_split("/\x{A7}+/u", $this->getCodeSection(), -1, PREG_SPLIT_NO_EMPTY);
+
+		// this means that therew as a problem splitting the codeSection, so return false
+		if (count($codeSection) == 1)
+			return FALSE;
+
+		$section = intval(trim($codeSection[1]));
+		if (trim($codeSection[0])=="18" && $section > 2300 && $section < 3300)
+			return TRUE;
+
+		return FALSE;
+	}
+
+	public function isArticleDCrime()
+	{
+		$codeSection = preg_split("/\x{A7}+/u", $this->getCodeSection(), -1, PREG_SPLIT_NO_EMPTY);
+
+		// this means that therew as a problem splitting the codeSection, so return false
+		if (count($codeSection) == 1)
+			return FALSE;
+
+		$section = intval(trim($codeSection[1]));
+		if (trim($codeSection[0])=="18" && $section > 4300 && $section < 4500)
+			return TRUE;
+
+		return FALSE;
+
+	}
+
+	public function isChapter61Crime()
+	{
+		$codeSection = preg_split("/\x{A7}+/u", $this->getCodeSection(), -1, PREG_SPLIT_NO_EMPTY);
+
+		// this means that therew as a problem splitting the codeSection, so return false
+		if (count($codeSection) == 1)
+			return FALSE;
+
+		$section = intval(trim($codeSection[1]));
+		if (trim($codeSection[0])=="18" && $section > 6100 && $section < 6200)
+			return TRUE;
+
+		return FALSE;
+	}
+
+	public function isSexRegCrime()
+	{
+		$codeSection = preg_split("/\x{A7}+/u", $this->getCodeSection(), -1, PREG_SPLIT_NO_EMPTY);
+
+		// this means that therew as a problem splitting the codeSection, so return false
+		if (count($codeSection) == 1)
+			return FALSE;
+
+
+		// if the code section is 18 PaCS 2192(a)
+		// section will be 2192a
+		$section =trim($codeSection[1]);
+		if (count($codeSection)==3)
+			$section .= trim($codeSection[2]);
+
+		if (trim($codeSection[0])=="18" && in_array($section, Charge::$cleanSlateTieredSexOffenses))
+			return TRUE;
+		else
+			return FALSE;
+
+	}
+
+	public function isCorruptionOfMinorsCrime()
+	{
+		$codeSection = preg_split("/\x{A7}+/u", $this->getCodeSection(), -1, PREG_SPLIT_NO_EMPTY);
+
+		// this means that therew as a problem splitting the codeSection, so return false
+		if (count($codeSection) < 3)
+			return FALSE;
+
+		// only return tru eif this matches 18 PaCS 6301(a)(1)
+		if(trim($codeSection[0])=="18" && trim($codeSection[1])=="6301" && trim($codeSection[2])=="a1")
+			return TRUE;
+		else
+			return FALSE;
+	}
 }
 ?>
