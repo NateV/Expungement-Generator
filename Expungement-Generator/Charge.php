@@ -409,7 +409,7 @@ class Charge
 		if (!in_array($grade, array("F1", "F2", "F3", "F", "M1", "unk")))
 		{
 			$this->isSealable = TRUE;
-			$this->sealableMessage = "Sealable.";
+			$this->sealableMessage = "Definitely Sealable.";
 			return null;
 		}
 
@@ -418,7 +418,7 @@ class Charge
 		if ($percent==0)
 		{
 			$this->isSealable = TRUE;
-			$this->sealableMessage = "Sealable.";
+			$this->sealableMessage = "Sealable. Grade is M2 or less serious.";
 			return null;
 		}
 
@@ -496,6 +496,15 @@ class Charge
 
 			$this->isSealable = FALSE;
 			return array($this->getCodeSection(), $this->sealableMessage);
+		}
+
+		// This isn't specifically unsealable.  If it is an M1, it is sealable
+		// because it isn't a B or D offense (or the other excluded offenses)
+		if ($grade=="M1")
+		{
+			$this->isSealable=TRUE;
+			$this->sealableMessage = "Definitely Sealable. M1, but not offense from Article B, D etc...";
+			return null;
 		}
 
 		// if it wasn't specifically unsealable, check to see if this is potentially
