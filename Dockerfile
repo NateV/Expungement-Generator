@@ -55,4 +55,4 @@ RUN cp /var/www/html/TemplateProcessor.php /var/www/html/vendor/phpoffice/phpwor
     chown eg_user:eg_user /var/run/apache2
 
 
-#USER eg_user:eg_user
+USER eg_user:eg_user
