@@ -107,7 +107,10 @@ else
     // parse the uploaded files will lead to expungements or redactions
     $docketFiles = $_FILES;
     if (isset($_SESSION['scrapedDockets']))
-        $docketFiles = CPCMS::downloadDockets($_SESSION['docket']);
+    {
+        $allDockets = array_merge($_SESSION['docket'], explode("|", $_REQUEST['otherDockets']));
+        $docketFiles = CPCMS::downloadDockets($allDockets);
+    }
 
     $record->parseDockets($tempFile, $pdftotext, $docketFiles);
 
