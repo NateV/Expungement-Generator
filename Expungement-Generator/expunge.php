@@ -142,6 +142,7 @@ else
     else
         print "<div><b>No expungeable or redactable offenses found for this individual.</b></div>";
 
+    printFinalPageHelpText();
     // write everything to the DB as long as this wasn't a "test" upload.
     // we determine test upload if a SSN is entered.  If there is no SSN, we assume that
     // there was no expungement either - it was just a test to see whether expungements were

@@ -183,3 +183,19 @@ function createHumanReadableExpungementResponseFromJSON($response)
 
     return $msg;
 }
+
+// prints some general help text for the final page of the expungement process
+function printFinalPageHelpText()
+{
+	print <<<END
+	<div><br/>
+		<b>Brief Instructions:</b>
+		<ul>
+		<li>On its first pass, the EG only prepares expungement petitions.  The .zip link will include all expungement petitions, an overview, and a sealing overview that helps to determine whether each case is sealable or not.</li>
+		<li>If the EG indicates that expungement is not available and the case involves a misdemeanor that is more than 10 years old, the case might be sealed. The sealing overview in the zip file can help you to analyze whether each case is sealable.</li>
+ 		<li>If you decide that a case is sealable, the EG can prepare a sealing petition for you.  To prepare a sealing petition, click on the “sealing” button next to the case. Unlike expungement petitions, sealing petitions will be produced one at a time, meaning you will have to press the sealing button next to a case, download the zip file, and then move on to the next case.</li>
+		<li>The “sealing” button will prepare a petition only if you downloaded docket sheets from CPCMS, not if you uploaded your own.  This is a known bug and limitation.</li>
+		<li>If CPCMS lists a different name or date of birth for your client on a specific docket, that docket may download only if you search by the name that appears on the dockets.  If you prepare a petition using a name that is not your client's, be sure to change the “petitioner” in the body of the order and petition to your client’s current name after you generated the petition; keep the original information in the caption.</li>
+	</ul></div>
+END;
+}

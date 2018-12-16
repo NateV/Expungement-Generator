@@ -287,7 +287,7 @@ END;
 print "
         <div class='form-item'>
         <input type='hidden' name='scrapedDockets' value='true'>
-        <input type='submit' value='Expunge' />
+        <input type='submit' value='Expunge/Seal' />
         </div>
         </form>
         <script type='text/javascript'>
