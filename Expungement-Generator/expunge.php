@@ -107,7 +107,10 @@ else
     // parse the uploaded files will lead to expungements or redactions
     $docketFiles = $_FILES;
     if (isset($_SESSION['scrapedDockets']))
-        $docketFiles = CPCMS::downloadDockets($_SESSION['docket']);
+    {
+        $allDockets = array_merge($_SESSION['docket'], explode("|", $_REQUEST['otherDockets']));
+        $docketFiles = CPCMS::downloadDockets($allDockets);
+    }
 
     $record->parseDockets($tempFile, $pdftotext, $docketFiles);
 
@@ -139,6 +142,7 @@ else
     else
         print "<div><b>No expungeable or redactable offenses found for this individual.</b></div>";
 
+    printFinalPageHelpText();
     // write everything to the DB as long as this wasn't a "test" upload.
     // we determine test upload if a SSN is entered.  If there is no SSN, we assume that
     // there was no expungement either - it was just a test to see whether expungements were
