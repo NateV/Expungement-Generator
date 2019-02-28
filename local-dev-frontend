@@ -5,29 +5,17 @@ FROM php:7.2-apache-stretch
 RUN apt-get update && \
     apt-get upgrade -y && \
     apt-get install -y git nano wget python2.7 libfontconfig poppler-utils cron zlib1g-dev nano unattended-upgrades apt-listchanges && \
-    ln -s /usr/bin/pdftotext /usr/local/bin/pdftotext && \
-    wget https://bitbucket.org/ariya/phantomjs/downloads/phantomjs-2.1.1-linux-x86_64.tar.bz2 && \
-    tar -xvjf phantomjs-2.1.1-linux-x86_64.tar.bz2 && \
-    mv phantomjs-2.1.1-linux-x86_64 /usr/local/share && \
-    ln -sf /usr/local/share/phantomjs-2.1.1-linux-x86_64/bin/phantomjs /usr/local/bin
+    ln -s /usr/bin/pdftotext /usr/local/bin/pdftotext
 
-RUN git clone https://github.com/casperjs/casperjs.git /usr/local/casperjs --single-branch && \
-    cd /usr/local/casperjs && \
-    ln -sf `pwd`/bin/casperjs /usr/local/bin/casperjs && \
-    cd /usr/local/include && \
+RUN cd /usr/local/include && \
     ln -s /usr/bin/python2.7 /usr/bin/python
-
-RUN git clone https://github.com/CLSPhila/casperscraping /usr/local/include/cpcmsNavigate --single-branch && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 RUN docker-php-ext-install mysqli && docker-php-ext-enable mysqli && docker-php-ext-install zip
 
 COPY ./eg-cron /etc/cron.d/eg-cron
 
 RUN chmod 0644 /etc/cron.d/eg-cron && \
-    touch /var/log/cron.log && \
-    rm /var/www/html/*
+    touch /var/log/cron.log
 
 COPY Expungement-Generator/ /var/www/html/
 COPY ./php.ini /usr/local/etc/php/php.ini

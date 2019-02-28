@@ -20,6 +20,7 @@ services:
             DB_USER: eg_user
             DB_PASS: somerandompassword
             SENDGRID_KEY: somerandomkey
+            docketscaperAPIURL: someurl
         networks:
             - eg-net
         ports:
@@ -38,5 +39,12 @@ services:
             - "3306"
         volumes:
             - ../eg-test.sql:/docker-entrypoint-initdb.d/init.sql
+    docketscraper_api:
+        image: "natev/docketscraper_api"
+        restart: always
+        networks:
+          - eg-net
+        expose:
+            - "8800"
 networks:
     eg-net:
