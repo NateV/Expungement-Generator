@@ -3,10 +3,10 @@
 /*****************************************
 *
 *	index.php
-*	The head page for the expungement generator	
+*	The head page for the expungement generator
 *
 *	Copyright 2011-2015 Community Legal Services
-* 
+*
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
 * You may obtain a copy of the License at
@@ -23,10 +23,10 @@
 
 //	require_once("config.php");
 //	require_once("utils.php");
-    require_once("CPCMS.php");
-	include("head.php");
+require_once("CPCMS.php");
+include("head.php");
 
-	// the page header, including the menu bar, etc...
+// the page header, including the menu bar, etc...
 //	include("header.php");
 
 $submit = false;
@@ -67,9 +67,9 @@ if (!empty($_POST))
 				</div>
 			</div>
 			<div class="space-line"></div>
-		</div> 
+		</div>
 		<div class="form-item">
-		</div> 
+		</div>
 		<div class="form-item">
 		<label for="personDOB">Date of Birth</label>
 			<input type="date" name="personDOB" id='date' value="<?php echo $dob?>" maxlength="10"/>
@@ -87,40 +87,37 @@ if ($submit)
     $cpcms = new cpcms($first, $last, $dob);
     $status = $cpcms->cpcmsSearch();
     $statusMDJ = $cpcms->cpcmsSearch(true);
-    if ((!preg_match("/Status: 0/",$status[0]) || preg_match("/error/", status[0])) && 
-       (!preg_match("/Status: 0/", $statusMDJ[0]) || preg_match("/error/", statusMDJ[0])))
-
-    {                                                                      
+    if ((count($cpcms->getResults()) == 0) &&
+        (count($cpcms->getMDJResults()) == 0)) {
         print "<br/><b>Your search returned no results.  This is probably because there is no one with the name $first $last in the court database.  You can try searching <a href='http://ujsportal.pacourts.us' target='_blank'>CPCMS directly</a> if you think that there is some error.";
-         
-    }
-    else
-    {
+    } else {
         //only integrate the summary information if we have a DOB; otherwise what is the point?
-        if (!empty($dob))                                                                        
+        if (!empty($dob))
             $cpcms->integrateSummaryInformation();
-        
+
         // display a small form that will send a quick email to legalserver with the docket numbers
         // and links to all of the dockets
         print "
         		<form action='mailDockets.php' target='_blank' method='post' enctype='multipart/form-data'>
-                    <div class='form-item'>                                                                               
-                        <label for='email'>Legal Server Case #</label>                                                          
+                    <div class='form-item'>
+                        <label for='email'>Legal Server Case #</label>
                         <input type='text' name='lsNumber' id='lsnumber' value='' maxlength='10'/>
                ";
-        
-        // include all of the docket numbers as hidden inputs, including the best docket
+
+        // include all of the docket urls as hidden inputs,
+        // including the best docket
+        // post these to mailDockets.php to mail them.
         $bestdocket = $cpcms->findBestSummaryDocketNumber();
         $dockets = array_merge($cpcms->getResults(), $cpcms->getMDJResults());
-        print "<input type='hidden' name='bestDocket' value='" . $bestdocket . "' />";
+        print "<input type='hidden' name='bestDocket' value='" . $bestdocket["summary_url"] . "' />";
         foreach ($dockets as $docket)
         {
-            print "<input type='hidden' name='dockets[]' value='" . $docket[0] . "' />";
+            print "<input type='hidden' name='dockets[]' value='" . $docket["docket_sheet_url"] . "' />";
         }
-            
+
         print "
             			<input type='submit' name='submit' value='Email Results to Legal Server' />
-                    </div>                                                                                                
+                    </div>
                 </form>
         ";
         $cpcms->displayResultsInTable(basename(__FILE__), false);
@@ -131,6 +128,6 @@ if ($submit)
 	<div class="content-right">&nbsp;</div>
 </div>
 
-<?php 
+<?php
 	include("foot.php");
 ?>

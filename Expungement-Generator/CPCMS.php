@@ -22,6 +22,7 @@
 require_once("config.php");
 require_once("ArrestSummary.php");
 require_once("helpers/docketsearch_api.php");
+require_once("helpers/docket_number_from_url.php");
 
 class CPCMS
 {
@@ -434,31 +435,11 @@ print "
 
     }
 
-    // downloads a docketsheet from CPCMS.  If isSummary is true, will download a summary
-    // docketSheet based on the docketnumber given; otherwise gets a regular docket sheet
-    // Analyzes the docket number to see if this is an MDJ docket or a CP docket.
-    public static function getDocket($docketNumber, $isSummary)
+    // downloads a docketsheet from CPCMS.
+    public static function getDocket($docketURL, $docketNumber, $isSummary)
     {
-
-        $url;
-
-        // if this is an MDJ docket, it will start with MJ and will need different download URLs
-        if (preg_match("/MJ\-/", $docketNumber))
-        {
-            if ($isSummary) $url = CPCMS::$summaryURLMDJ . $docketNumber;
-            else $url = CPCMS::$docketURLMDJ . $docketNumber;
-        }
-
-        //otherwise this ia a CP case and we need different URLS
-        else
-        {
-           if ($isSummary) $url = CPCMS::$summaryURL . $docketNumber;
-           else $url = CPCMS::$docketURL . $docketNumber;
-        }
-
-        // now that we know the docket url, download!
         $ch = CPCMS::initConnection();
-        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_URL, $docketURL);
 
         $filename = $GLOBALS['dataDir'] . $docketNumber;
         if ($isSummary) $filename = $filename . "Summary";
@@ -499,28 +480,31 @@ print "
         });
     }
 
-    // takes an array of docket numbers and downloads all of the docketsheets
-    // including the summary docket.  If a file already exists in the $data dir,
+    // takes an array of docket urls and downloads them.
+    // If a file already exists in the $data dir,
     // will just use that and not redownload.
     // returns an associative array like the $_FILES array.  It will have the following fields:
     // $files['userFile']['tmp_name'][] which is the path to the file
     // $files['userFile']['size'][] which is the size of the file
     // $files['userFile']['name'][] which is the name of the file (the docket number is this case
-    public static function downloadDockets($dockets)
+    public static function downloadDockets($docketURLs)
     {
         $files = array();
 
         // sort the dockets in reverse cron order
-        usort ($dockets, function($a,$b) {
-            return substr($b, -4) - substr($a ,-4);
-        });
+        // usort ($dockets, function($a,$b) {
+        //     return substr($b, -4) - substr($a ,-4);
+        // });
 
-        foreach ($dockets as $dn)
+        foreach ($docketURLs as $du)
         {
             // first check to see if there is already a docket downloaded with this number
+            // explanation of substr($dn, -25):
+            //    $dn is a docket number with a u
+            $dn = docketNumberFromURL($du);
             $thisFile = $GLOBALS['dataDir'] . $dn . ".pdf";
             if (!(file_exists($thisFile) && filesize($thisFile) > 0))
-                $thisFile = CPCMS::getDocket($dn, false);
+                $thisFile = CPCMS::getDocket($du, $dn, false);
             $files['userFile']['tmp_name'][] = $thisFile;
             $files['userFile']['size'][] = filesize($thisFile);
             $files['userFile']['name'][] = $dn . ".pdf";
