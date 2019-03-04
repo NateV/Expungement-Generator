@@ -70,6 +70,9 @@ function docketNumberSearch($docketNumber, $mdj) {
   //Set the content type to application/json
   curl_setopt(
       $ch, CURLOPT_HTTPHEADER, array('Content-Type: application/json'));
+  //Do not print request results.
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+  curl_setopt($ch, CURLOPT_VERBOSE, 0);
   $result = curl_exec($ch);
   curl_close($ch);
   $jsonResults = json_decode($result, true);

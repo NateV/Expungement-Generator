@@ -38,10 +38,13 @@ class CPCMS
 
     private $bestSummaryDocketNumber;
     private $bestSummaryDocketNumberMDJ;
-    public static $docketURL = "https://ujsportal.pacourts.us/DocketSheets/CPReport.ashx?docketNumber=";
-    public static $summaryURL = "https://ujsportal.pacourts.us/DocketSheets/CourtSummaryReport.ashx?docketNumber=";
-    public static $docketURLMDJ = "https://ujsportal.pacourts.us/DocketSheets/MDJReport.ashx?docketNumber=";
-    public static $summaryURLMDJ = "https://ujsportal.pacourts.us/DocketSheets/MDJCourtSummaryReport.ashx?docketNumber=";
+
+    // All removed, because these base urls no longer work.
+    // TODO delete these
+    // public static $docketURL = "https://ujsportal.pacourts.us/DocketSheets/CPReport.ashx?docketNumber=";
+    // public static $summaryURL = "https://ujsportal.pacourts.us/DocketSheets/CourtSummaryReport.ashx?docketNumber=";
+    // public static $docketURLMDJ = "https://ujsportal.pacourts.us/DocketSheets/MDJReport.ashx?docketNumber=";
+    // public static $summaryURLMDJ = "https://ujsportal.pacourts.us/DocketSheets/MDJCourtSummaryReport.ashx?docketNumber=";
 
 
     // expects that the date will come in YYYY-MM-DD formate, but CPCMS requires mm/dd/yyy format
@@ -97,6 +100,10 @@ class CPCMS
             $this->results = [];
             $this->resultsMDJ = [];
         }
+
+        error_log(
+            " - Found " . sizeof($this->results) . " CP Dockets and " .
+            sizeof($this->resultsMDJ) . " MDJ Dockets.");
         return $status;
     }
 
@@ -120,11 +127,18 @@ class CPCMS
         foreach ($this->results as $result)
         {
             print "<tr>";
-            print "<td><a href='$this->docketURL" . $result[0] . "' target='_blank'>$result[0]</a>";
-            print "(<a href='$this->summaryURL" . $result[0] . "' target='_blank'>s</a>)</td>";
-            print "<td>$result[1]</td>";
-            print "<td>$result[2]</td>";
-            print "<td>$result[3]</td>";
+            print (
+              "<td><a href='" .
+              $result["docket_sheet_url"] .
+              "' target='_blank'>" .
+              $result["docket_number"] .
+              "</a>");
+            print (
+              "(<a href='" . $result["summary_url"] .
+              "' target='_blank'>s</a>)</td>");
+            print "<td>" . $result["status"] . "</td>";
+            print "<td>" . $result["otn"] . "</td>";
+            print "<td>" . $result["dob"] . "</td>";
             print "</tr>";
         }
         print "</table>";
@@ -132,18 +146,24 @@ class CPCMS
         //MDJ
         if (count($resultsMDJ > 0))
         {
-            $summaryCaseMDJ = $this->findBestSummaryDocketNumberMDJ();
+            $summaryCaseMDJURL = $this->findBestSummaryDocketNumberMDJ();
             print "<br/><b>MDJ Cases</b>";
-            print "<a href='$this->summaryURL" . $summaryCase . "' target='_blank'>Summary Docket (MDJ)</a>";
+            print (
+                "<a href='" . $summaryCaseMDJURL . "' target='_blank'>Summary Docket (MDJ)</a>");
             print "<table class='pure-table'><thead><th>Docket Number</th><th>Status</th><th>OTN</th><TH>DOB</TH></thead>";
             foreach ($this->resultsMDJ as $result)
             {
                 print "<tr>";
-                print "<td><a href='$this->docketURL" . $result[0] . "' target='_blank'>$result[0]</a>";
-                print "(<a href='$this->summaryURL" . $result[0] . "' target='_blank'>s</a>)</td>";
-                print "<td>$result[1]</td>";
-                print "<td>$result[2]</td>";
-                print "<td>$result[3]</td>";
+                print (
+                  "<td><a href='" .
+                  $result["docket_sheet_url"] . "' target='_blank'>" .
+                  $result["docket_number"] . "</a>");
+                print (
+                  "(<a href='" . $result["summary_url"] .
+                  "' target='_blank'>s</a>)</td>");
+                print "<td>" . $result["status"] . "</td>";
+                print "<td>" . $result["otn"] . "</td>";
+                print "<td>" . $result["dob"] . "</td>";
                 print "</tr>";
             }
             print "</table>";
@@ -390,8 +410,11 @@ print "
     // cases to add to the array, adds them in with all of the relevant information.
     public function integrateSummaryInformation()
     {
+        error_log("Integrating Summary Information");
         $summaryURL = $this->findBestSummaryDocketNumber();
-        $summaryFile = $this->getDocket($summaryURL, true);
+        $summaryDocketNumber = docketNumberFromURL($summaryURL);
+        $summaryFile = $this->getDocket(
+            $summaryURL, $summaryDocketNumber, true );
 
         $command = $GLOBALS['pdftotext'] . " -layout \"" . $summaryFile . "\" \"" . $GLOBALS['tempFile'] . "\"";
         system($command, $ret);
@@ -407,7 +430,7 @@ print "
             // compare the arrests from the summary docket to the
             // arrests already on this CPCMS object.  Add in any arrests
             // that weren't already there with a notation that they were found on the summary
-            $thisArrests = $this->results;
+            $docketsFound = $this->results;
             foreach ($sArrests as $arrest)
             {
                 // each arrest could have multiple docket numbers
@@ -415,24 +438,31 @@ print "
                 {
                     $add = true;
                     // check each arrest against the arrests stored on this object
-                    foreach ($thisArrests as $thisArrest)
+                    foreach ($docketsFound as $docketFound)
                     {
                         // if we find a match between this docket number and a docket number
                         // in our results list, break and go on to the next docket numbe rin our list
-                        if ($dn==$thisArrest[0])
+                        if ($dn==$docketFound["docket_number"])
                         {
                             $add = false;
                             break;
                         }
                     }
 
-                    // if we never found a match, add this docket number to the list.
-                    if ($add)
-                        $this->results[] = array($dn, "From Summary", $arrest->getOTN(), "From Summary");
-                }
-            }
-        }
+                    // if we never found a match, add this docket number to
+                    // the list of results.
+                    // false indicates that this is a CP, not MDJ docket.
+                    $this->results[] = docketNumberSearch($dn, false)["docket"];
 
+                      // replaced by a function to add a single docket to the
+                      // the results array
+                      // array(
+                      //   "docket_number" => $dn,
+                      //   "otn" => $arrest->getOTN(),
+                      // );
+                }// end loop through dockets associated w/ an arrest
+            }// end loop through list of arrests found in a summary docket
+        }
     }
 
     // downloads a docketsheet from CPCMS.
@@ -469,6 +499,10 @@ print "
     // Sort the $results member by year of case, with the most recent cases at the start of the array
     private function sortResults()
     {
+        if (sizeof($this->results) === 0) {
+          return;
+        }
+        error_log("Sorting results");
         usort($this->results, function($a,$b) {
            return substr($b["docket_number"],-4) -
                   substr($a["docket_number"],-4);
@@ -511,24 +545,25 @@ print "
         }
 
         // download the summary docket as well
-        $bestSummary = $dockets[0];
+        $bestSummaryURL = $docketURLs[0];
         // check each of the docket numbers to see if it is better than dns[0], the first on the list
-        foreach ($dockets as $dn)
+        foreach ($docketURLs as $du)
         {
             // a good URL will have a CR in the middle and not start with MJ (not an MDJ case)
-            if (preg_match("/^(?!MJ).*-CR-/", $dn))
+            if (preg_match("/^(?!MJ).*-CR-/", $du))
             {
                 // if we found a Common Pleas CR docket, then use that instead of whatever is already in bestSummary
-                $bestSummary = $dn;
+                $bestSummaryURL = $du;
                 break;
             }
         }
 
         // now download the summary
         // first check to see if there is already a docket downloaded with this number
+        $bestSummary = docketNumberFromURL($bestSummaryURL);
         $thisFile = $GLOBALS['dataDir'] . "Summary" . $bestSummary . ".pdf";
         if (!(file_exists($thisFile) && filesize($thisFile) > 0))
-            $thisFile = CPCMS::getDocket($bestSummary, true);
+            $thisFile = CPCMS::getDocket($bestSummaryURL, $bestSummary, true);
         $files['userFile']['tmp_name'][] = $thisFile;
         $files['userFile']['size'][] = filesize($thisFile);
         $files['userFile']['name'][] = "SummaryDocket.pdf";
