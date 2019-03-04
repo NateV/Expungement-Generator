@@ -92,7 +92,6 @@ function request_builder()
 		$request['personZip'] = (array_key_exists('personZip', $_REQUEST)) ? $_REQUEST['personZip'] : $json['personZip'];
 	}
 
-
 	return $request;
 }
 

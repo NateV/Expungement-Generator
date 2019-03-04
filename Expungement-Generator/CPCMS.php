@@ -69,28 +69,8 @@ class CPCMS
             isset($this->dob) ? $this->dob : false,
             $mdj);
 
-        // $searchString = " --first='$this->first' --last='$this->last'";
-        //
-        // // if a DOB is specified, then search for it.  If not, only return the first page of results
-        // if (isset($this->dob))
-        //   $searchString = $searchString . " --DOB=$this->dob";
-        // else
-        //   $searchString = $searchString . " --limit";
-        //
-        // if ($mdj)
-        //   $searchString = $searchString . " --mdj";
-        //
-        // $command = $GLOBALS['casperjsCommand'] . " " . $GLOBALS['casperScript'] . $searchString;
-        // //print $command . "<br/>";
-        // exec($command, $results);
-
         $status = $results["status"];
 
-        // foreach($results as $key=>$value)
-        // {
-        //    $results[$key] = explode(" | ", $value);
-        // }
-        // $status = array_shift($results);
         if ($mdj && ($status == "success"))
             $this->resultsMDJ = $results["dockets"];
         else if ($status == "success")
@@ -518,7 +498,7 @@ print "
     // $files['userFile']['tmp_name'][] which is the path to the file
     // $files['userFile']['size'][] which is the size of the file
     // $files['userFile']['name'][] which is the name of the file (the docket number is this case
-    public static function downloadDockets($docketURLs, $summaryURL = none)
+    public static function downloadDockets($docketURLs, $summaryURL = NULL)
     {
         $files = array();
 
