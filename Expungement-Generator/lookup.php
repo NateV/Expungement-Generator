@@ -109,7 +109,9 @@ if ($submit)
         // post these to mailDockets.php to mail them.
         $bestdocket = $cpcms->findBestSummaryDocketNumber();
         $dockets = array_merge($cpcms->getResults(), $cpcms->getMDJResults());
-        print "<input type='hidden' name='bestDocket' value='" . $bestdocket["summary_url"] . "' />";
+        print (
+            "<input type='hidden' name='bestDocket' value='" .
+            $bestdocket . "' />");
         foreach ($dockets as $docket)
         {
             print "<input type='hidden' name='dockets[]' value='" . $docket["docket_sheet_url"] . "' />";

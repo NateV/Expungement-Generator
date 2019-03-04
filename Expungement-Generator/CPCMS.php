@@ -85,7 +85,6 @@ class CPCMS
         // exec($command, $results);
 
         $status = $results["status"];
-        error_log("Status: " . $status);
 
         // foreach($results as $key=>$value)
         // {
@@ -101,9 +100,6 @@ class CPCMS
             $this->resultsMDJ = [];
         }
 
-        error_log(
-            " - Found " . sizeof($this->results) . " CP Dockets and " .
-            sizeof($this->resultsMDJ) . " MDJ Dockets.");
         return $status;
     }
 
@@ -342,9 +338,6 @@ print "
             return null;
 
         if (isset($this->bestSummaryDocketNumber)) {//is this ever set?
-          error_log(
-              "expunge.php:311: bestSummaryDocketNumber has been set. " .
-              "Returning it.");
           return $this->bestSummaryDocketNumber;
         } else {
           $number = $this->findBestSummaryDocket($this->results, "CR");
@@ -515,13 +508,17 @@ print "
     }
 
     // takes an array of docket urls and downloads them.
+    //
+    // If $summaryURL is included, it is the url of a docket to save with
+    // Summary in the file name.
+    //
     // If a file already exists in the $data dir,
     // will just use that and not redownload.
     // returns an associative array like the $_FILES array.  It will have the following fields:
     // $files['userFile']['tmp_name'][] which is the path to the file
     // $files['userFile']['size'][] which is the size of the file
     // $files['userFile']['name'][] which is the name of the file (the docket number is this case
-    public static function downloadDockets($docketURLs)
+    public static function downloadDockets($docketURLs, $summaryURL = none)
     {
         $files = array();
 
@@ -533,8 +530,6 @@ print "
         foreach ($docketURLs as $du)
         {
             // first check to see if there is already a docket downloaded with this number
-            // explanation of substr($dn, -25):
-            //    $dn is a docket number with a u
             $dn = docketNumberFromURL($du);
             $thisFile = $GLOBALS['dataDir'] . $dn . ".pdf";
             if (!(file_exists($thisFile) && filesize($thisFile) > 0))
@@ -544,29 +539,22 @@ print "
             $files['userFile']['name'][] = $dn . ".pdf";
         }
 
-        // download the summary docket as well
-        $bestSummaryURL = $docketURLs[0];
-        // check each of the docket numbers to see if it is better than dns[0], the first on the list
-        foreach ($docketURLs as $du)
-        {
-            // a good URL will have a CR in the middle and not start with MJ (not an MDJ case)
-            if (preg_match("/^(?!MJ).*-CR-/", $du))
-            {
-                // if we found a Common Pleas CR docket, then use that instead of whatever is already in bestSummary
-                $bestSummaryURL = $du;
-                break;
-            }
+        // now download the summary, if provided
+        if ($summaryURL) {
+          $summaryNumber = docketNumberFromURL($summaryURL);
+          $thisFile = (
+            $GLOBALS['dataDir'] . "Summary" .
+            $summaryNumber . ".pdf"
+          );
+          if (!(file_exists($thisFile) && filesize($thisFile) > 0)) {
+            $thisFile = CPCMS::getDocket(
+              $summaryURL, $summaryNumber, true
+            );
+          }
+          $files['userFile']['tmp_name'][] = $thisFile;
+          $files['userFile']['size'][] = filesize($thisFile);
+          $files['userFile']['name'][] = "SummaryDocket.pdf";
         }
-
-        // now download the summary
-        // first check to see if there is already a docket downloaded with this number
-        $bestSummary = docketNumberFromURL($bestSummaryURL);
-        $thisFile = $GLOBALS['dataDir'] . "Summary" . $bestSummary . ".pdf";
-        if (!(file_exists($thisFile) && filesize($thisFile) > 0))
-            $thisFile = CPCMS::getDocket($bestSummaryURL, $bestSummary, true);
-        $files['userFile']['tmp_name'][] = $thisFile;
-        $files['userFile']['size'][] = filesize($thisFile);
-        $files['userFile']['name'][] = "SummaryDocket.pdf";
 
         return $files;
     }

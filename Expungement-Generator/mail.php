@@ -26,6 +26,7 @@
 //  require_once("utils.php");
 require "vendor/autoload.php";
 require_once("CPCMS.php");
+require_once("helpers/docket_number_from_url.php");
 
 if (!empty($_POST)) {
     // send a quick blank response so scripts don't wait for me to download dockets
@@ -41,16 +42,20 @@ if (!empty($_POST)) {
 
     // build the email message
     $message = "The EG found the following cases for this individual:\r\n\r\n";
-    $message .= "Summary Docket: " . $_POST['bestDocket'] . " | " . CPCMS::$summaryURL . $_POST['bestDocket'] . " | " . CPCMS::$summaryURL . $_POST['bestDocket'] . "\r\n\r\n";
+    $message .= (
+      "Summary Docket: " . "\r\n" .
+      " | " . docketNumberFromURL($_POST['bestDocket']) . " | " .
+      "\r\n\r\n");
     $message .= "All dockets: \r\n\r\n";
     foreach ($_POST['dockets'] as $docket)
     {
-        $message .= $docket . " | " . CPCMS::$docketURL . $docket . "\r\n";
-
+        $message .= " | " . docketNumberFromURL($docket) . " | " . "\r\n";
     }
 
     // download the dockets
-    $docketFiles = CPCMS::downloadDockets($_POST['dockets']);
+    $docketFiles = CPCMS::downloadDockets(
+        $_POST['dockets'], $_POST['bestDocket'], true);
+
 
     // create the email
     $emailAddress = $_POST['email'];

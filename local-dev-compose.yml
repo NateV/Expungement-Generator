@@ -17,7 +17,7 @@ services:
           DB_NAME: eg_db
           DB_USER: eg_user
           DB_PASS: somerandompassword
-          SENDGRID_KEY: somerandomkey
+          SENDGRID_KEY: "${SENDGRID_KEY}"
           docketscaperAPIURL: "docketscraper_api:8800"
       volumes:
           - type: bind

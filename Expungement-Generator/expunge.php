@@ -88,9 +88,6 @@ else
     if (isset($_POST['scrapedDockets']))
     $_SESSION['scrapedDockets'] = $_POST['scrapedDockets'];
 
-#xx    $arrests = array();
-#xx    $arrestSummary = new ArrestSummary();
-
     // get information about the person from the POST vars passed in
     $urlPerson = getPersonFromPostOrSession();
     $person = new Person($urlPerson['First'], $urlPerson['Last'], $urlPerson['SSN'], $urlPerson['Street'], $urlPerson['City'], $urlPerson['State'], $urlPerson['Zip']);
