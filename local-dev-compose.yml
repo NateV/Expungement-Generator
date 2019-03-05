@@ -23,6 +23,8 @@ services:
           - type: bind
             source: "./Expungement-Generator"
             target: /var/www/html
+          - type: mount
+            target: data:/data
       networks:
           - eg-net
       ports:

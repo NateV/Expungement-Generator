@@ -25,6 +25,9 @@ services:
             - eg-net
         ports:
             - "9090:80"
+        volumes:
+            - type: mount
+              target: data:/data
     db:
         image: mysql:5.7
         restart: always
