@@ -21,10 +21,10 @@ COPY Expungement-Generator/ /var/www/html/
 COPY ./php.ini /usr/local/etc/php/php.ini
 COPY ./docker-config.php /var/www/html/config.php
 
-RUN mkdir -p /var/www/html/data && \
+RUN mkdir -p /data && \
     mkdir -p /var/www/html/docketsheets && \
     useradd -ms /bin/bash eg_user && \
-    chown eg_user:eg_user /var/www/html/data && \
+    chown eg_user:eg_user /data && \
     chown eg_user:eg_user /var/www/html/docketsheets && \
     curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 

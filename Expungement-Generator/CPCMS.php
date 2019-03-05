@@ -39,14 +39,6 @@ class CPCMS
     private $bestSummaryDocketNumber;
     private $bestSummaryDocketNumberMDJ;
 
-    // All removed, because these base urls no longer work.
-    // TODO delete these
-    // public static $docketURL = "https://ujsportal.pacourts.us/DocketSheets/CPReport.ashx?docketNumber=";
-    // public static $summaryURL = "https://ujsportal.pacourts.us/DocketSheets/CourtSummaryReport.ashx?docketNumber=";
-    // public static $docketURLMDJ = "https://ujsportal.pacourts.us/DocketSheets/MDJReport.ashx?docketNumber=";
-    // public static $summaryURLMDJ = "https://ujsportal.pacourts.us/DocketSheets/MDJCourtSummaryReport.ashx?docketNumber=";
-
-
     // expects that the date will come in YYYY-MM-DD formate, but CPCMS requires mm/dd/yyy format
     public function __construct($first, $last, $dob)
     {
