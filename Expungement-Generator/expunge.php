@@ -84,9 +84,9 @@ else if (isset($_POST['cpcmsSearch']) && $_POST['cpcmsSearch'] == "true")
 else
 {
     if (isset($_POST['docket']))
-    $_SESSION['docket'] = $_POST['docket'];
+        $_SESSION['docket'] = $_POST['docket'];
     if (isset($_POST['scrapedDockets']))
-    $_SESSION['scrapedDockets'] = $_POST['scrapedDockets'];
+        $_SESSION['scrapedDockets'] = $_POST['scrapedDockets'];
 
     // get information about the person from the POST vars passed in
     $urlPerson = getPersonFromPostOrSession();

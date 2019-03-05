@@ -238,7 +238,7 @@ END;
             if ($form)
               print (
                 "<td><input type='checkbox' name='docket[]' value='" .
-                $result["docket_number"] .
+                $result["docket_sheet_url"] .
                 "' checked='checked' class='checkItem' /></td>");
             print (
               "<td><a href='" . $result["docket_sheet_url"] .
@@ -259,7 +259,7 @@ END;
             if ($form)
               print (
                 "<td><input type='checkbox' name='docket[]' value='" .
-                $result["docket_number"] .
+                $result["docket_sheet_url"] .
                 "' checked='checked' class='checkItem' /></td>");
             print (
               "<td><a href='" . $result["docket_sheet_url"] .
