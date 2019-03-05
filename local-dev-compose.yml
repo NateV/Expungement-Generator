@@ -17,11 +17,14 @@ services:
           DB_NAME: eg_db
           DB_USER: eg_user
           DB_PASS: somerandompassword
-          SENDGRID_KEY: somerandomkey
+          SENDGRID_KEY: "${SENDGRID_KEY}"
+          docketscaperAPIURL: "docketscraper_api:8800"
       volumes:
           - type: bind
             source: "./Expungement-Generator"
             target: /var/www/html
+          - type: mount
+            target: data:/data
       networks:
           - eg-net
       ports:
@@ -41,5 +44,12 @@ services:
           - eg-net
       expose:
             - "3306"
+  docketscraper_api:
+      image: "natev/docketscraper_api"
+      restart: always
+      networks:
+        - eg-net
+      expose:
+          - "8800"
 networks:
     eg-net:

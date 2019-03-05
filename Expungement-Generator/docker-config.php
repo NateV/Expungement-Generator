@@ -31,7 +31,8 @@ $baseURL = getenv("BASE_URL");
 $pdftotext = $toolsDir . DIRECTORY_SEPARATOR . "pdftotext";
 $sendGridApiKey = getenv("SENDGRID_KEY");
 // these shouldn't ever need to change
-$dataDir = join(DIRECTORY_SEPARATOR, array($wwwdir, "data")) . DIRECTORY_SEPARATOR;
+//$dataDir = join(DIRECTORY_SEPARATOR, array($wwwdir, "data")) . DIRECTORY_SEPARATOR;
+$dataDir = join(DIRECTORY_SEPARATOR, "data") . DIRECTORY_SEPARATOR;
 $templateDir = join(DIRECTORY_SEPARATOR, array($wwwdir, "templates")) . DIRECTORY_SEPARATOR;
 $docketSheetsDir = join(DIRECTORY_SEPARATOR, array($wwwdir, "docketsheets")) . DIRECTORY_SEPARATOR;
 // db information

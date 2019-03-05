@@ -20,7 +20,7 @@
 
 	// Log the request, but strip identifying info
 	$test_headers = $request;
-        error_log("Logging a request to eg-api.");
+  error_log("Logging a request to eg-api.");
 
 	$test_headers['apikey'] = preg_replace('/./', 'x', $test_headers['apikey']);
 	$test_headers['personFirst'] = preg_replace('/(?!^)./','x',$test_headers['personFirst']);
@@ -35,6 +35,7 @@
 		$response['results']['status'] = malformedRequest($request);
 		$log_trail .= "malformed request";
 	} elseif(!validAPIKey($request, $db)) {
+		error_log("request was formed fine, but api key didn't validate.");
 		http_response_code(401);
 		$response['results']['status'] = "Invalid request.";
 		$log_trail .= "invalid request";
@@ -50,10 +51,13 @@
 			$log_trail .= ",cpcmsSearch";
 			$urlPerson = getPersonFromPostOrSession($request);
 
-			$cpcms = new CPCMS($urlPerson['First'],$urlPerson['Last'], $urlPerson['DOB']);
+			$cpcms = new CPCMS(
+					$urlPerson['First'], $urlPerson['Last'], $urlPerson['DOB']);
 			$status = $cpcms->cpcmsSearch();
 			$statusMDJ = $cpcms->cpcmsSearch(true);
-			if (!preg_match("/0/",$status[0]) && !preg_match("/0/", $statusMDJ[0])) {
+			if (
+					(sizeof($cpcms->getResults()) === 0) &&
+					(sizeof($cpcms->getMDJResults()) === 0)) {
 				$response['results'] = "Your CPCMS search returned no results.";
 			} else {
 				//only integrate the summary information if we
@@ -64,14 +68,19 @@
 				// We need an array of docket numbers, so we take the list of results
 				// and extract only the docket number from each.
 				$docketNums = array();
-				foreach (array_merge($cpcms->getResults(), $cpcms->getMDJResults()) as $result) {
-					$docketNums[] = $result[0];
+				$docketURLs = array();
+				$summaryURLs = array();
+				$otns = array();
+				foreach (
+					array_merge($cpcms->getResults(),
+											$cpcms->getMDJResults()) as $result) {
+					$docketNums[] = $result["docket_number"];
+					$docketURLs[] = $result["docket_sheet_url"];
+					$summaryURLs[] = $result["summary_url"];
+					$otns[] = $result["otn"];
+
 				};
-        // remove the cpcmsSearch variable from the POST vars and then pass them to
-        // a display funciton that will display all of the arrests as a webform, with all
-        // of the post vars re-posted as hidden variables.  Also pass this filename as the
-        // form action location.
-        			unset($request['cpcmsSearch']);
+    		unset($request['cpcmsSearch']);
 			}
 		} // end of processing cpcmsSearch
 		error_log("Done processing cpcmsSearch");
@@ -114,6 +123,7 @@
 				}
 			}
 			$response['results']['dockets'] = $docketNums;
+			$response['results']['docket_links'] = $docketURLs;
 		}
 		// doExpungements prints a table to the screen.
 		// combineArrests also prints to the screen.
@@ -124,20 +134,20 @@
 		if (count($docketNums)>0) {
 			//if the cpcms search has been run and has found dockets
 			//or of docket numbers were sent with the request to the api
-			$docketFiles = CPCMS::downloadDockets($docketNums);
+			$docketFiles = CPCMS::downloadDockets($docketURLs);
 			$record->parseDockets($tempFile, $pdftotext, $docketFiles);
 			$record->integrateSummaryInformation(True);
 			//set $isAPI in integrateSummaryInformation() to True to prevent printing to screen
 			$record->combineArrests();
 			$response['results']['arrestCount'] = $record->getTotalArrests();
-			# TODO Could add a function to insert a string of arrest information into $response.
-			# TODO Could also add a function to insert information about chargeObjects (child of Arrest)
 		}
-        $files=[];
+    $files=[];
 
 		error_log("beginning to create petitions, if requested.");
 		if (preg_match('/^(t|true|1)$/i', $request['createPetitions'])===1) {
-    		$files = doExpungements($record->getArrests(), $templateDir, $dataDir, $record->getPerson(),
+    		$files = doExpungements(
+					$record->getArrests(), $templateDir, $dataDir,
+					$record->getPerson(),
 	    		$attorney, $_SESSION['expungeRegardless'],
 		    	$db);
 	    	//$response['results']['sealing'] = $parsed_results['sealing'];
@@ -168,13 +178,6 @@
 
 		error_log("starting to write to db");
 		if (isset($urlPerson['SSN']) && $urlPerson['SSN'] != "") {
-			//error_log("writing to db:");
-			//error_log("arrests:");
-		    	//file_put_contents('php://stderr', print_r($arrests), TRUE);
-			//error_log("person");
-			//file_put_contents('php://stderr', print_r($person), TRUE);
-			//error_log("attorney");
-			//file_put_contents('php://stderr', print_r($attorney), TRUE);
 
 			writeExpungementsToDatabase($record->getArrests(), $record->getPerson(), $attorney, $db);
 			//error_log("wrote to db");
