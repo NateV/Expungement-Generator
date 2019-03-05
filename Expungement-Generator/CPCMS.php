@@ -200,12 +200,14 @@ END;
 
         if (!empty($summaryCaseURL))
         {
+            $url = $this->getURL($summaryCase, CPCMS::$summaryURL, FALSE);
             print "<div class='boldLabel'>";
             print "<a href='". $summaryCaseURL . "' target='_blank'>Summary Docket</a>";
             print "</div>";
         }
         if (!empty($summaryCaseMDJURL))
         {
+            $url = $this->getURL($summaryCaseMDJ, CPCMS::$summaryURLMDJ, TRUE);
             print "<div class='boldLabel'>";
             print "<a href='". $summaryCaseMDJURL . "' target='_blank'>MDJ Summary Docket</a>";
             print "</div>";
@@ -270,13 +272,14 @@ END;
 
     }
 
+
     public function formClose()
     {
 
 print "
         <div class='form-item'>
         <input type='hidden' name='scrapedDockets' value='true'>
-        <input type='submit' value='Expunge' />
+        <input type='submit' value='Expunge/Seal' />
         </div>
         </form>
         <script type='text/javascript'>
@@ -304,6 +307,7 @@ print "
     // Returns the URL of the summary docket that we think is the most useful.
     //
     // If there is no best summary docket number, then retuns null.
+
     public function findBestSummaryDocketNumber()
     {
         if (count($this->results) < 1)
@@ -315,6 +319,7 @@ print "
           $number = $this->findBestSummaryDocket($this->results, "CR");
         }
 
+
         if ($number === 0)
             return $this->results[0]["summary_url"];
         else
@@ -325,6 +330,7 @@ print "
     // Returns the URL of the summary docket that we think is the most useful.
     //
     // If there is no best summary docket number, then retuns null.
+
     public function findBestSummaryDocketNumberMDJ()
     {
         if (count($this->resultsMDJ) < 1)
@@ -348,6 +354,7 @@ print "
     // (what is older?  Maybe I should just look for the most recent)
     // Closed cases are better.  Cases with a -CR- in them are better
     // (criminal cases), SU cases second best
+
     // Helpfully, the results returned by CPCMS are generally already in the correct order.
     // returns 0 if there are no docketes that fit the bill
     private function findBestSummaryDocket($aResults, $bestDocketTell)
@@ -501,6 +508,7 @@ print "
 
         foreach ($docketURLs as $du)
         {
+            list($docket, $dnh) = explode(CPCMS::$valueSep, $dn);
             // first check to see if there is already a docket downloaded with this number
             $dn = docketNumberFromURL($du);
             $thisFile = $GLOBALS['dataDir'] . $dn . ".pdf";
@@ -508,9 +516,8 @@ print "
                 $thisFile = CPCMS::getDocket($du, $dn, false);
             $files['userFile']['tmp_name'][] = $thisFile;
             $files['userFile']['size'][] = filesize($thisFile);
-            $files['userFile']['name'][] = $dn . ".pdf";
+            $files['userFile']['name'][] = $docket . ".pdf";
         }
-
         // now download the summary, if provided
         if ($summaryURL) {
           $summaryNumber = docketNumberFromURL($summaryURL);
