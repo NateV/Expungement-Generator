@@ -27,7 +27,7 @@ services:
             - "9090:9090"
         volumes:
             - type: mount
-              target: data:/data
+              target: /data
     db:
         image: eg_db # or natev/eg-docker-db:latest
         build:

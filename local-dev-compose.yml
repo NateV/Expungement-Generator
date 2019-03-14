@@ -24,7 +24,7 @@ services:
             source: "./Expungement-Generator"
             target: /var/www/html
           - type: mount
-            target: data:/data
+            target: /data
       networks:
           - eg-net
       ports:
