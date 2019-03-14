@@ -38,7 +38,7 @@ class CPCMS
 
     private $bestSummaryDocketNumber;
     private $bestSummaryDocketNumberMDJ;
-
+    public static $valueSep = "|||";
     // expects that the date will come in YYYY-MM-DD formate, but CPCMS requires mm/dd/yyy format
     public function __construct($first, $last, $dob)
     {
@@ -63,13 +63,20 @@ class CPCMS
 
         $status = $results["status"];
 
-        if ($mdj && ($status == "success"))
+        if ($mdj) {
+          // This was an MDJ search
+          if ($status === "success") {
             $this->resultsMDJ = $results["dockets"];
-        else if ($status == "success")
-            $this->results = $results["dockets"];
-        else {
-            $this->results = [];
+          } else {
             $this->resultsMDJ = [];
+          }
+        } else {
+          // This was a CP search
+          if ($status === "success") {
+            $this->results = $results["dockets"];
+          } else {
+            $this->results = [];
+          }
         }
 
         return $status;
@@ -200,14 +207,14 @@ END;
 
         if (!empty($summaryCaseURL))
         {
-            $url = $this->getURL($summaryCase, CPCMS::$summaryURL, FALSE);
+            //$url = $this->getURL($summaryCase, CPCMS::$summaryURL, FALSE);
             print "<div class='boldLabel'>";
             print "<a href='". $summaryCaseURL . "' target='_blank'>Summary Docket</a>";
             print "</div>";
         }
         if (!empty($summaryCaseMDJURL))
         {
-            $url = $this->getURL($summaryCaseMDJ, CPCMS::$summaryURLMDJ, TRUE);
+            //$url = $this->getURL($summaryCaseMDJ, CPCMS::$summaryURLMDJ, TRUE);
             print "<div class='boldLabel'>";
             print "<a href='". $summaryCaseMDJURL . "' target='_blank'>MDJ Summary Docket</a>";
             print "</div>";
@@ -508,7 +515,7 @@ print "
 
         foreach ($docketURLs as $du)
         {
-            list($docket, $dnh) = explode(CPCMS::$valueSep, $dn);
+            //list($docket, $dnh) = explode(CPCMS::$valueSep, $dn);
             // first check to see if there is already a docket downloaded with this number
             $dn = docketNumberFromURL($du);
             $thisFile = $GLOBALS['dataDir'] . $dn . ".pdf";
@@ -516,7 +523,7 @@ print "
                 $thisFile = CPCMS::getDocket($du, $dn, false);
             $files['userFile']['tmp_name'][] = $thisFile;
             $files['userFile']['size'][] = filesize($thisFile);
-            $files['userFile']['name'][] = $docket . ".pdf";
+            $files['userFile']['name'][] = $dn . ".pdf";
         }
         // now download the summary, if provided
         if ($summaryURL) {
