@@ -60,11 +60,17 @@ function doExpungements($arrests, $templateDir, $dataDir, $person, $attorney, $e
             print "No";
 
 
-          print "</td>";
+      print "</td>";
 
-          // allow generation of sealing and Pardon petitions
-          print "<td><a href='?sealingRegardless=true&docket=" . implode("|",$arrest->getDocketNumber()) ."&otherDockets=$allDocketNumbers' target='_blank'>Sealing</a> | <a href='?expungeRegardless=true&docket=" . implode("|",$arrest->getDocketNumber()) ."' target='_blank'>Pardon</a></td></tr>";
-        } // if held for court
+      // allow generation of sealing and Pardon petitions
+      print (
+				"<td><a href='?sealingRegardless=true&docket=" .
+				implode("|",$arrest->getDocketNumber()) .
+				"&otherDockets='" . $allDocketNumbers .
+				"' target='_blank'>Sealing</a> | " .
+				"<a href='?expungeRegardless=true&docket=" . implode("|",$arrest->getDocketNumber()) .
+				"' target='_blank'>Pardon</a></td></tr>");
+    } // if held for court
 	}
 	print "</table>";
 	return $files;
