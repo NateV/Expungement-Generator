@@ -30,6 +30,7 @@ And build with
 
 ```
 docker build . -t natev/eg-docker-frontend:latest
+docker push natev/eg-docker-frontend:latest
 ```
 
 **Note that apache in the container does not run on port 80.**
