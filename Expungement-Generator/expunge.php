@@ -145,7 +145,7 @@ else
     // there was no expungement either - it was just a test to see whether expungements were
     // possible or a test of the generator itself by yours truly.
     if (isset($urlPerson['SSN']) && $urlPerson['SSN'] != "")
-    writeExpungementsToDatabase($record->getArrest(), $record->getPerson(), $attorney, $db);
+    writeExpungementsToDatabase($record->getArrests(), $record->getPerson(), $attorney, $db);
 
 
     // if we are debuging, display the expungements
