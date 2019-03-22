@@ -177,7 +177,7 @@ class Charge
 	* Checks if the current charge is either murder or a possible F1
 	* and returns an array in the format charge:message
 	* @param: none
-	* @return: an associative array in the format charge: message
+	* @return: an associative array in the format charge: message, or null.
 	**/
 	public function checkCleanSlateMurderFelony()
 	{

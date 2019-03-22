@@ -1966,13 +1966,17 @@ class Arrest
 	/**
 	* @function checkCleanSlateMurderFelony
 	* @param: none
-	* @return: an associative array in the format charge: message
+	* @return: an associative array in the format charge: message,
+  * 				 or a list of null values.
 	**/
 	public function checkCleanSlateMurderFelony()
 	{
 		// if we've done this before for this case, just return what we have
-		if (isset($this->cleanSlateEligible['MurderF1']))
+		if (isset($this->cleanSlateEligible['MurderF1'])) {
 			return $this->cleanSlateEligible['MurderF1'];
+		} else {
+			$this->cleanSlateEligible['MurderF1'] = Array();
+		}
 
 		foreach ($this->getCharges() as $charge)
 		{
@@ -1998,7 +2002,7 @@ class Arrest
 		$thisDispDate = new DateTime($this->getBestDispositionDate());
 
 		$dateDiff=($thisDispDate->diff(new DateTime(), TRUE))->y;
-		
+
 		if ($dateDiff < 10 && $this->isArrestConviction() && !$this->getIsSummaryArrest())
 			$this->cleanSlateEligible['Past10MFConviction'][] = "This case happened less than 10 years ago (".$dateDiff.").";
 

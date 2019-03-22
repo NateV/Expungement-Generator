@@ -507,7 +507,6 @@ print "
     public static function downloadDockets($docketURLs, $summaryURL = NULL)
     {
         $files = array();
-
         // sort the dockets in reverse cron order
         // usort ($dockets, function($a,$b) {
         //     return substr($b, -4) - substr($a ,-4);
@@ -517,6 +516,9 @@ print "
         {
             //list($docket, $dnh) = explode(CPCMS::$valueSep, $dn);
             // first check to see if there is already a docket downloaded with this number
+            if ($du === "") {
+              continue;
+            }
             $dn = docketNumberFromURL($du);
             $thisFile = $GLOBALS['dataDir'] . $dn . ".pdf";
             if (!(file_exists($thisFile) && filesize($thisFile) > 0))

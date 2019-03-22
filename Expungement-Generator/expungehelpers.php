@@ -11,14 +11,13 @@ function doExpungements($arrests, $templateDir, $dataDir, $person, $attorney, $e
 {
 	$files = array();
 
-	allDocketNumbers;
+	$allDocketNumbers = array();
 
 	foreach($arrests as $arrest) {
 		$allDocketNumbers[] = implode("|", $arrest->getDocketNumber());
 	}
 
 	$allDocketNumbers = implode("|", $allDocketNumbers);
-
 	print "<table class='pure-table pure-table-horizontal pure-table-striped'>";
     print "<thead><tr><th>Docket #</th><th>Expungeable</th><th>Optional Petitions</th></tr></thead>";
 	foreach ($arrests as $arrest)
@@ -66,7 +65,7 @@ function doExpungements($arrests, $templateDir, $dataDir, $person, $attorney, $e
       print (
 				"<td><a href='?sealingRegardless=true&docket=" .
 				implode("|",$arrest->getDocketNumber()) .
-				"&otherDockets='" . $allDocketNumbers .
+				"&otherDockets=" . $allDocketNumbers .
 				"' target='_blank'>Sealing</a> | " .
 				"<a href='?expungeRegardless=true&docket=" . implode("|",$arrest->getDocketNumber()) .
 				"' target='_blank'>Pardon</a></td></tr>");

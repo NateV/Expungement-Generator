@@ -285,8 +285,21 @@ class Record
 
     }
 
+    // Remove False elements from an array.
+    //
+    // Args:
+    //  $var: Array or null
+    //
+    // Returns:
+    //  If $var is an array, return an array of elements
+    //  that don't evaluate to false (probably usually
+    //  an array with null elements removed.)
+    //  If $var is null itself, return False;
     public static function not_empty($var)
     {
+        if (empty($var)) {
+          return FALSE;
+        }
         return array_filter($var);
     }
 
@@ -594,6 +607,10 @@ class Record
         foreach($a as $case=>$infos)
         {
             // and each charge within the case
+            if (gettype($infos) != "array") {
+              continue;
+            }
+
             foreach($infos as $info)
             {
                 // and add to the proper arrays the case num, charge, and description
@@ -601,7 +618,7 @@ class Record
                 {
                     // info is usually two elements: charge and reason
                     // but for 10-year convictions, it is just a reason
-                    if (count($info)>1)
+                    if (gettype($info)==="array")
                     {
                         $case_charge[] = $case . " | " . $info[0];
                         $reason[] = $info[1];
