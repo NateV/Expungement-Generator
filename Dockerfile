@@ -13,9 +13,9 @@ RUN cd /usr/local/include && \
 
 RUN docker-php-ext-install mysqli && docker-php-ext-enable mysqli && docker-php-ext-install zip
 
-COPY ./eg-cron /etc/cron.d/eg-cron
+COPY ./egcron /etc/cron.d/egcron
 
-RUN chmod 0644 /etc/cron.d/eg-cron && \
+RUN chmod 0644 /etc/cron.d/egcron && \
     touch /var/log/cron.log
 
 COPY Expungement-Generator/ /var/www/html/

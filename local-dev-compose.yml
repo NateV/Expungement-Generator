@@ -1,6 +1,4 @@
 version: '3.2'
-
-
 services:
   expungement_generator:
       image: eg_front
@@ -24,6 +22,7 @@ services:
             source: "./Expungement-Generator"
             target: /var/www/html
           - type: mount
+            source: egdatavolume
             target: /data
       networks:
           - eg-net

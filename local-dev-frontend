@@ -12,9 +12,9 @@ RUN cd /usr/local/include && \
 
 RUN docker-php-ext-install mysqli && docker-php-ext-enable mysqli && docker-php-ext-install zip
 
-COPY ./eg-cron /etc/cron.d/eg-cron
+COPY ./egcron /etc/cron.d/egcron
 
-RUN chmod 0644 /etc/cron.d/eg-cron && \
+RUN chmod 0644 /etc/cron.d/egcron && \
     touch /var/log/cron.log
 
 COPY Expungement-Generator/ /var/www/html/
@@ -33,6 +33,5 @@ RUN cp /var/www/html/TemplateProcessor.php /var/www/html/vendor/phpoffice/phpwor
     sed -i s/80/9090/ /etc/apache2/ports.conf && \
     touch /var/run/apache2/apache2.pid && \
     chown eg_user:eg_user /var/run/apache2
-
 
 USER eg_user:eg_user
