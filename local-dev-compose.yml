@@ -46,6 +46,8 @@ services:
   docketscraper_api:
       image: "natev/docketscraper_api"
       restart: always
+      environment:
+        GUNICORN_LOGGER: "true"
       networks:
         - eg-net
       expose:

@@ -43,6 +43,10 @@ function docketNameSearch($firstName, $lastName, $dob, $mdj) {
   //get the json results
   $jsonResults = json_decode($result, true);
 
+  if ($jsonResults["status"] != "success") {
+    error_log($jsonResults["status"]);
+  }
+
   return $jsonResults;
 }
 
