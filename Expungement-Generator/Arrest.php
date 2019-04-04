@@ -563,6 +563,7 @@ class Arrest
 				// ignore this charge if it is in the exclusion array
 				if (in_array(trim($matches[2]), self::$ignoreDisps))
 					continue;
+					
 
 				$charge = trim($matches[1]);
 				// we need to check to see if the next line has overflow from the charge.

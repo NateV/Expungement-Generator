@@ -102,6 +102,7 @@ else
         $attorney->printAttorneyInfo();
 
     // parse the uploaded files will lead to expungements or redactions
+    error_log("number of files uploaded: " . sizeof($_FILES));
     $docketFiles = $_FILES;
     if (isset($_SESSION['scrapedDockets']))
     {

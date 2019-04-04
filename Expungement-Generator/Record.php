@@ -66,11 +66,14 @@ class Record
         // loop over all of the files that we uploaded and read them in to see if they are expungeable
         foreach($docketFiles["userFile"]["tmp_name"] as $key => $file)
         {
+            error_log("pdftotext now");
+            error_log($key . " -> " . $file);
+
             $command = $pdftotext . " -layout \"" . $file . "\" \"" . $tempFile . "\"";
             //print $command;
             system($command, $ret);
 
-            # print "<br>The pdftotext command: $command <BR />";
+            error_log("The pdftotext command: " . $command);
 
             if ($ret == 0)
             {
@@ -82,6 +85,7 @@ class Record
                 if ($arrest->isDocketSheet($thisRecord[1]) || $arrest->checkIsJuvenilePhilly($thisRecord[0]))
                 {
                     // if this is a regular docket sheet, use the regular parsing function
+                    error_log("Parsing a docket sheet");
                     $arrest->readArrestRecord($thisRecord, $this->person);
 
                     // associate the PDF with the arrest for later saving to the DB
@@ -93,8 +97,11 @@ class Record
                     }
 
                     // now add the arrest to the arrests array
-                    if ($arrest->isArrestCriminal())
-                        $this->addArrest($arrest);
+                    if ($arrest->isArrestCriminal()) {
+                      error_log("adding criminal arrest");
+                      error_log("it has " . sizeof($arrest->getCharges()) . " charges");
+                      $this->addArrest($arrest);
+                    }
 
                 }
                 elseif (ArrestSummary::isArrestSummary($thisRecord))
@@ -102,10 +109,15 @@ class Record
                     // if this is a summary sheet of all arrests, make a separate array
                     $this->arrestSummary->processArrestSummary($thisRecord);
                 }
-            }
+            } else {
+                error_log("PDF to text failed");
+                error_log($ret);
         }
+        }
+
         try
         {
+            error_log("unlinking " . $tempFile);
             unlink($tempFile);
         }
         catch (Exception $e) {}
