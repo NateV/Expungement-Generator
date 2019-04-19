@@ -431,7 +431,7 @@ print "
                     // if we never found a match, add this docket number to
                     // the list of results.
                     // false indicates that this is a CP, not MDJ docket.
-                    $this->results[] = docketNumberSearch($dn, false)["docket"];
+                    $this->results[] = $docketNumberSearch($dn, false)["docket"];
 
                       // replaced by a function to add a single docket to the
                       // the results array
