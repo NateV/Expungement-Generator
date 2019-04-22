@@ -9,6 +9,7 @@
 // @return an array of the file names that were created during this process.
 function doExpungements($arrests, $templateDir, $dataDir, $person, $attorney, $expungeRegardless, $db)
 {
+	error_log("doExpungements");
 	$files = array();
 
 	$allDocketNumbers = array();
