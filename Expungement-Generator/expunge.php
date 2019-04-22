@@ -82,7 +82,7 @@ else if (isset($_POST['cpcmsSearch']) && $_POST['cpcmsSearch'] == "true")
 }
 
 else
-{
+{ // CPCMS Search is false or not sent in the POST at all.
     if (isset($_POST['docket']))
         $_SESSION['docket'] = $_POST['docket'];
     if (isset($_POST['scrapedDockets']))
@@ -106,11 +106,34 @@ else
     $docketFiles = $_FILES;
     if (isset($_SESSION['scrapedDockets']))
     {
+        // I think the user did a CPCMS search, which puts the dockets found
+        // in the search into a session variable called scrapedDockets.
+        error_log("scrapedDockets is set");
         $allDockets = array_merge($_SESSION['docket'], explode("|", $_REQUEST['otherDockets']));
         $docketFiles = CPCMS::downloadDockets($allDockets);
+    } else {
+      error_log("scrapedDockets is not set in the session..");
+      // I think user has clicked the Sealing or Pardon links,
+      // after uploading their dockets, rather than doing a cpcms search.
+      if (isset($_REQUEST['docket']) && isset($_REQUEST['otherDockets'])) {
+        // I think user has clicked the Sealing link, which specifies a target
+        // docket, but also all the other dockets b/c they are relevant to
+        // reviewing the full record for sealing.
+        $allDockets = array_merge(array($_REQUEST['docket']), explode("|", $_REQUEST['otherDockets']));
+        $docketFiles = CPCMS::findFiles($allDockets);
+      }
+      if (isset($_REQUEST['docket']) && !isset($_REQUEST['otherDockets'])) {
+        // I think that the user has clicked the Pardon link, which only
+        // sends the docket param, because only this one docket will be relevant
+        // to a pardon application.
+        $docketFiles = CPCMS::findFiles(array($_REQUEST['docket']));
+      }
     }
 
-    $record->parseDockets($tempFile, $pdftotext, $docketFiles);
+    error_log("There are " . sizeof($docketFiles) . " dockets to parse");
+    if (sizeof($docketFiles) > 0) {
+      $record->parseDockets($tempFile, $pdftotext, $docketFiles);
+    }
 
     // integrate the summary information in with the arrests
     $record->integrateSummaryInformation();
@@ -122,10 +145,12 @@ else
 
 
     // check to see if Act5 Sealable
+    error_log("checking sealing eligibility.");
     $record->checkSealingEligibility();
 
 
     // do the expungements in PDF form
+    error_log("doing expungments.");
     $files = doExpungements($record->getArrests(), $templateDir, $dataDir, $record->getPerson(), $attorney, $_SESSION['expungeRegardless'], $db);
     $files[] = createOverview($record->getArrests(), $templateDir, $dataDir, $record->getPerson());
 

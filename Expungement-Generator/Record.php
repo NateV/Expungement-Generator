@@ -67,13 +67,10 @@ class Record
         foreach($docketFiles["userFile"]["tmp_name"] as $key => $file)
         {
             error_log("pdftotext now");
-            error_log($key . " -> " . $file);
 
             $command = $pdftotext . " -layout \"" . $file . "\" \"" . $tempFile . "\"";
             //print $command;
             system($command, $ret);
-
-            error_log("The pdftotext command: " . $command);
 
             if ($ret == 0)
             {

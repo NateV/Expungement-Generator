@@ -44,7 +44,8 @@ services:
       expose:
             - "3306"
   docketscraper_api:
-      image: "natev/docketscraper_api"
+      #image: "natev/docketscraper_api"
+      image: "egscraper:v1.1"
       restart: always
       environment:
         GUNICORN_LOGGER: "true"

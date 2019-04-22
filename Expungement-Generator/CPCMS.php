@@ -498,6 +498,26 @@ print "
         });
     }
 
+    // Given an array of docket numbers, which have already been downloaded,
+    // return the file path of the downloaded dockets.
+    public static function findFiles($docketNums) {
+      $files = array();
+      foreach ($docketNums as $dn) {
+        $dn = preg_replace("/[^a-zA-Z0-9\-]/", "", $dn);
+        $thisFile = $GLOBALS['dataDir'] . $dn . ".pdf";
+        if ((file_exists($thisFile) && filesize($thisFile) > 0)) {
+          $files['userFile']['tmp_name'][] = $thisFile;
+          $files['userFile']['size'][] = filesize($thisFile);
+          $files['userFile']['name'][] = $dn . ".pdf";
+        } else {
+          // The file $docketNum hasn't been downloaded.
+          // What should we do?
+          error_log("Docket " . $dn . " has unexpectedly not been downloaded already. Why?");
+        }
+      }
+      return $files;
+    }
+
     // takes an array of docket urls and downloads them.
     //
     // If $summaryURL is included, it is the url of a docket to save with
@@ -511,6 +531,7 @@ print "
     // $files['userFile']['name'][] which is the name of the file (the docket number is this case
     public static function downloadDockets($docketURLs, $summaryURL = NULL)
     {
+        error_log("In CPCMS to download dockets");
         $files = array();
         // sort the dockets in reverse cron order
         // usort ($dockets, function($a,$b) {
