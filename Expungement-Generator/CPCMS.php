@@ -405,7 +405,7 @@ print "
             $summary = new ArrestSummary();
             $summary->readArrestSummary($thisRecord);
             $sArrests = $summary->getArrests();
-
+            $dnQueue = array(); // array for tracking dockets we need.
             // compare the arrests from the summary docket to the
             // arrests already on this CPCMS object.  Add in any arrests
             // that weren't already there with a notation that they were found on the summary
@@ -431,7 +431,8 @@ print "
                     // if we never found a match, add this docket number to
                     // the list of results.
                     // false indicates that this is a CP, not MDJ docket.
-                    $this->results[] = $docketNumberSearch($dn, false)["docket"];
+                    $dnQueue[] = $dn;
+                    // $this->results[] = docketNumberSearch($dn, false)["docket"];
 
                       // replaced by a function to add a single docket to the
                       // the results array
@@ -441,6 +442,10 @@ print "
                       // );
                 }// end loop through dockets associated w/ an arrest
             }// end loop through list of arrests found in a summary docket
+            $results = manyDocketNumberSearch($dnQueue, false);
+            $this->results = array_merge(
+                $this->results,
+                $results["dockets"]);
         }
     }
 
