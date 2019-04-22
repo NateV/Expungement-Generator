@@ -106,6 +106,8 @@ else
     $docketFiles = $_FILES;
     if (isset($_SESSION['scrapedDockets']))
     {
+        // I think the user did a CPCMS search, which puts the dockets found
+        // in the search into a session variable called scrapedDockets.
         error_log("scrapedDockets is set");
         $allDockets = array_merge($_SESSION['docket'], explode("|", $_REQUEST['otherDockets']));
         $docketFiles = CPCMS::downloadDockets($allDockets);
@@ -114,8 +116,17 @@ else
       // I think user has clicked the Sealing or Pardon links,
       // after uploading their dockets, rather than doing a cpcms search.
       if (isset($_REQUEST['docket']) && isset($_REQUEST['otherDockets'])) {
+        // I think user has clicked the Sealing link, which specifies a target
+        // docket, but also all the other dockets b/c they are relevant to
+        // reviewing the full record for sealing.
         $allDockets = array_merge(array($_REQUEST['docket']), explode("|", $_REQUEST['otherDockets']));
-        $docketFiles = CPCMS::findFile($allDockets);
+        $docketFiles = CPCMS::findFiles($allDockets);
+      }
+      if (isset($_REQUEST['docket']) && !isset($_REQUEST['otherDockets'])) {
+        // I think that the user has clicked the Pardon link, which only
+        // sends the docket param, because only this one docket will be relevant
+        // to a pardon application.
+        $docketFiles = CPCMS::findFiles(array($_REQUEST['docket']));
       }
     }
 

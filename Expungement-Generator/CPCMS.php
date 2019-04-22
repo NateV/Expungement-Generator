@@ -500,7 +500,7 @@ print "
 
     // Given an array of docket numbers, which have already been downloaded,
     // return the file path of the downloaded dockets.
-    public static function findFile($docketNums) {
+    public static function findFiles($docketNums) {
       $files = array();
       foreach ($docketNums as $dn) {
         $dn = preg_replace("/[^a-zA-Z0-9\-]/", "", $dn);
