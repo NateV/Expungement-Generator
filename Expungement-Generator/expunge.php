@@ -157,11 +157,12 @@ else
     $files[] = $record->generateCleanSlateOverview($templateDir, $dataDir);
 
     // zip up the final PDFs
-    $zipFile = zipFiles($files, $dataDir, $docketFiles, $record->getPerson()->getFirst() . $record->getPerson()->getLast() . "Expungements");
+    $filename = bin2hex(random_bytes(10));
+    $zipFile = zipFiles($files, $dataDir, $docketFiles, $filename);
 
     print "<div>&nbsp;</div>";
     if (count($files) > 0)
-        print "<div><b>Download Petitions and Overview: <a href='secureServe.php?serveFile=" . basename($zipFile). "'>" . basename($zipFile) . "</a></b></div>";
+        print "<div><b>Download Petitions and Overview: <a href='secureServe.php?serveFile=" . basename($zipFile). "'>" ."Your Expungements" . "</a></b></div>";
     else
         print "<div><b>No expungeable or redactable offenses found for this individual.</b></div>";
 
