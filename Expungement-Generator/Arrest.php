@@ -189,7 +189,7 @@ class Arrest
 
 	// this is a crazy one.  Basically matching whitespace then $xx.xx then whitespace then
 	// -$xx.xx, etc...  The fields show up as Assesment, Payment, Adjustments, Non-Monetary, Total
-	protected static $costsSearch = "/Totals:\s+\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})/";
+	protected static $costsSearch = "/Totals:\s+\\$([\d\,]+\.\d{2})\s+-?\(?\\$([\d\,]+\.\d{2})\)?\s+-?\(?\\$([\d\,]+\.\d{2})\)?\s+-?\(?\\$([\d\,]+\.\d{2})\)?\s+-?\(?\\$([\d\,]+\.\d{2})\)?/";
 	protected static $bailSearch = "/Bail.+\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})/";
 	public function __construct () {}
 
@@ -563,7 +563,7 @@ class Arrest
 				// ignore this charge if it is in the exclusion array
 				if (in_array(trim($matches[2]), self::$ignoreDisps))
 					continue;
-					
+
 
 				$charge = trim($matches[1]);
 				// we need to check to see if the next line has overflow from the charge.
@@ -655,10 +655,10 @@ class Arrest
             // So rather than search for it, I am going to search for EVERY bare date entry and store
             // each as the discharge date.  The final one will override all previous and we will have a
             // discharge date!
-            else if ($this->isJuvenilePhilly && preg_match(self::$dischargeDateSearch, trim($line), $matches))
+	    else if ($this->isJuvenilePhilly && preg_match(self::$dischargeDateSearch, trim($line), $matches)) {
                $this->setJDischargeDate(trim($matches[1]));
-		}
-
+	    }
+	  }
 	}
 
 	// Compares two arrests to see if they are part of the same case.  Two arrests are part of the
@@ -1117,7 +1117,7 @@ class Arrest
 
 	// returns true if this is an expungeable arrest.  this is true if no charges are guilty
 	// or guilty plea or held for court.
-	// TODO: There is a problem here, although it rarely comes up.  On MC-51-CR-0040172-2012, which sharon is expunging
+	// TODO: There is a problem here, although it rarely comes up.  On a case which sharon is expunging
 	// right now, there are charges listed twice on the MC: once in an "arraignment"  where the charges are "proceed to court"
 	// and then again under a prelim hearing where the charges are dismissed.  This function sees the proceed
 	// to court charges and believes that this is a redaction even though it is an expungement.  The question is:
