@@ -57,8 +57,7 @@ else if (isset($_POST['cpcmsSearch']) && $_POST['cpcmsSearch'] == "true")
     // entries from teh previous screen), and shoot everything back here to do the expungements
     $urlPerson = getPersonFromPostOrSession();
     $cpcms = new CPCMS($urlPerson['First'], $urlPerson['Last'], $urlPerson['DOB']);
-    $status = $cpcms->cpcmsSearch();
-    $statusMDJ = $cpcms->cpcmsSearch(true);
+    $status = $cpcms->cpcmsSearch(true);
     if ((count($cpcms->getResults()) == 0) &&
         (count($cpcms->getMDJResults()) == 0)) {
     // if (!preg_match("/Status: 0/",$status[0]) && !preg_match("/Status: 0/", $statusMDJ[0]))

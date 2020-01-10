@@ -30,7 +30,6 @@ function docketNameSearch($firstName, $lastName, $dob, $mdj) {
   }
 
   $jsonDataEncoded = json_encode($jsonData);
-  print_r($jsonData);
   //Tell cURL that we want to send a POST request.
   curl_setopt($ch, CURLOPT_POST, 1);
   //Attach our encoded JSON string to the POST fields.
@@ -52,13 +51,22 @@ function docketNameSearch($firstName, $lastName, $dob, $mdj) {
   } else {
     $jsonResults["status"] = "success";
   }
-  print_r($jsonResults);
   return $jsonResults;
 }
 
 
 function manyDocketNumberSearch($dnQueue, $mdj) {
+  /**
+   *  Search UJS for a list of dockets. 
+   * 
+   * For now, this simply searches one-at-a-time,
+   * but a future upgrade of the ujs search api will add the abilty to 
+   * search for many dockets at once.
+   */
+
+
   error_log("Searching for " . count($dnQueue) . " docket numbers at once.");
+  /*
   global $docketScraperAPIURL;
   $ch = curl_init($docketScraperAPIURL . "/" . "lookupMultipleDockets");
   $jsonData = array(
@@ -80,7 +88,19 @@ function manyDocketNumberSearch($dnQueue, $mdj) {
   curl_close($ch);
   $jsonResults = json_decode($result, true);
   error_log("Found " . count($jsonResults["dockets"]) . " of " . count($dnQueue) . " .");
-  return $jsonResults;
+
+  */
+
+  $results = array();
+  foreach($dnQueue as $dn) {
+    $interem_results =  docketNumberSearch($dn);
+    if (array_key_exists("searchResults", $interem_results)) {
+      $results = array_merge($results, $interem_results["searchResults"]);
+    }
+  }
+  
+  print_r($results);
+  return $results;
 }
 
 
@@ -91,11 +111,10 @@ function manyDocketNumberSearch($dnQueue, $mdj) {
 //
 // Returns:
 //   associative array with information about a specific docket.
-function docketNumberSearch($docketNumber, $mdj) {
+function docketNumberSearch($docketNumber) {
   global $docketScraperAPIURL;
   $ch = curl_init($docketScraperAPIURL . "/" .
-                  "lookupDocket/" .
-                  ($mdj? "MDJ" : "CP"));
+                  "ujs/search/docket/");
   $jsonData = array(
     "docket_number" => $docketNumber
   );
@@ -114,7 +133,7 @@ function docketNumberSearch($docketNumber, $mdj) {
   $result = curl_exec($ch);
   curl_close($ch);
   $jsonResults = json_decode($result, true);
-
+   
   return $jsonResults;
 }
 

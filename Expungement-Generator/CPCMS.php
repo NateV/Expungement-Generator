@@ -63,22 +63,13 @@ class CPCMS
 
         $status = $results["status"];
 
-        if ($mdj) {
-          // This was an MDJ search
-          if ($status === "success") {
-            $this->resultsMDJ = $results["MDJ"];
-          } else {
-            $this->resultsMDJ = [];
-          }
+        if ($status === "success") {
+          $this->resultsMDJ = $results["searchResults"]["MDJ"];
+          $this->results = $results["searchResults"]["CP"];
         } else {
-          // This was a CP search
-          if ($status === "success") {
-            $this->results = $results["CP"];
-          } else {
-            $this->results = [];
-          }
+          $this->resultsMDJ = [];
+          $this->results = [];
         }
-
         return $status;
     }
 
@@ -445,7 +436,7 @@ print "
             $results = manyDocketNumberSearch($dnQueue, false);
             $this->results = array_merge(
                 $this->results,
-                $results["dockets"]);
+                $results);
         }
     }
 
