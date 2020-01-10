@@ -70,7 +70,6 @@ function getPersonFromPostOrSession($data = FALSE)
         $_SESSION['urlPerson']['Last'] = $GLOBALS['db']->real_escape_string(htmlspecialchars(stripslashes($data["personLast"])));
     if (isset($data["personDOB"]))
         $_SESSION['urlPerson']['DOB'] = $GLOBALS['db']->real_escape_string(htmlspecialchars(stripslashes($data["personDOB"])));
-
     if (isset($data["personStreet"]))
         $_SESSION['urlPerson']['Street'] = $GLOBALS['db']->real_escape_string(htmlspecialchars(stripslashes($data["personStreet"])));
     if (isset($data["personStreet"]))

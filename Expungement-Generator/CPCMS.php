@@ -66,14 +66,14 @@ class CPCMS
         if ($mdj) {
           // This was an MDJ search
           if ($status === "success") {
-            $this->resultsMDJ = $results["dockets"];
+            $this->resultsMDJ = $results["MDJ"];
           } else {
             $this->resultsMDJ = [];
           }
         } else {
           // This was a CP search
           if ($status === "success") {
-            $this->results = $results["dockets"];
+            $this->results = $results["CP"];
           } else {
             $this->results = [];
           }

@@ -16,18 +16,21 @@ require_once("config.php");
 function docketNameSearch($firstName, $lastName, $dob, $mdj) {
   global $docketScraperAPIURL;
   $ch = curl_init($docketScraperAPIURL . "/" .
-                  "searchName/" .
-                  ($mdj? "MDJ" : "CP"));
+                  "ujs/search/name/");
   $jsonData = array(
     "first_name" => $firstName,
     "last_name" => $lastName
   );
 
   if ($dob) {
-    $jsonData["dob"] = $dob;
+    $dobDate = strtotime($dob);
+    if ($dobDate !== false) {
+      $jsonData["dob"] = date('Y-m-d', $dobDate);
+    } 
   }
 
   $jsonDataEncoded = json_encode($jsonData);
+  print_r($jsonData);
   //Tell cURL that we want to send a POST request.
   curl_setopt($ch, CURLOPT_POST, 1);
   //Attach our encoded JSON string to the POST fields.
@@ -43,10 +46,13 @@ function docketNameSearch($firstName, $lastName, $dob, $mdj) {
   //get the json results
   $jsonResults = json_decode($result, true);
 
-  if ($jsonResults["status"] != "success") {
-    error_log($jsonResults["status"]);
+  if (array_key_exists("errors", $jsonResults)) {
+    error_log($jsonResults["errors"]);
+    $jsonResults["status"] = "error";
+  } else {
+    $jsonResults["status"] = "success";
   }
-
+  print_r($jsonResults);
   return $jsonResults;
 }
 
