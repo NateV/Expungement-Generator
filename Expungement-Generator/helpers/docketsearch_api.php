@@ -99,7 +99,6 @@ function manyDocketNumberSearch($dnQueue, $mdj) {
     }
   }
   
-  print_r($results);
   return $results;
 }
 
