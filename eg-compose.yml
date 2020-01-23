@@ -57,7 +57,7 @@ services:
       environment:
         SECRET_KEY: "${SECRET_KEY}"
         DB: "/data/"
-        DEBUG: "TRUE"
+        DEBUG: "FALSE"
         ALLOWED_HOST: "docketscraperapi"
       networks:
         - eg-net

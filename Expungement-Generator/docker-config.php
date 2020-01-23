@@ -2,7 +2,7 @@
 /*************************************
 * config.php
 * configuration settings for the expungement generator
-*
+*  ## I think that this version is EXTRA and should be deleted!
 *  THIS VERSION IS FOR USE WITH A DOCKER CONTAINER.
 *
 *	Copyright 2011-2015 Community Legal Services
