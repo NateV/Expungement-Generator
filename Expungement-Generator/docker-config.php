@@ -25,13 +25,13 @@ $basedir = join(DIRECTORY_SEPARATOR, array("", "var", "www"));
 $toolsDir = join(DIRECTORY_SEPARATOR, array("", "usr", "local", "bin"));
 $includeDir = join(DIRECTORY_SEPARATOR, array("", "usr", "local", "include"));
 $wwwdir = join(DIRECTORY_SEPARATOR, array ($basedir, "html"));
-$casperScript = join(DIRECTORY_SEPARATOR, array($includeDir, "cpcmsNavigate", "searchCPCMS.js"));
-$casperjsCommand = join(DIRECTORY_SEPARATOR, array($toolsDir, "casperjs"));
+$docketScraperAPIURL = getenv("docketscraperAPIURL");
+#$casperScript = join(DIRECTORY_SEPARATOR, array($includeDir, "cpcmsNavigate", "searchCPCMS.js"));
+#$casperjsCommand = join(DIRECTORY_SEPARATOR, array($toolsDir, "casperjs"));
 $baseURL = getenv("BASE_URL");
 $pdftotext = $toolsDir . DIRECTORY_SEPARATOR . "pdftotext";
 $sendGridApiKey = getenv("SENDGRID_KEY");
 // these shouldn't ever need to change
-//$dataDir = join(DIRECTORY_SEPARATOR, array($wwwdir, "data")) . DIRECTORY_SEPARATOR;
 $dataDir = join(DIRECTORY_SEPARATOR, "data") . DIRECTORY_SEPARATOR;
 $templateDir = join(DIRECTORY_SEPARATOR, array($wwwdir, "templates")) . DIRECTORY_SEPARATOR;
 $docketSheetsDir = join(DIRECTORY_SEPARATOR, array($wwwdir, "docketsheets")) . DIRECTORY_SEPARATOR;

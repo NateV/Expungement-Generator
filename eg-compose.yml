@@ -1,14 +1,17 @@
-version: '3' #this refers to the version of the dockerfile format.
+version: '3.2' #this refers to the version of the dockerfile format.
 
 # Version 3 of the docker-compose format:
 # https://docs.docker.com/compose/compose-file/
 
 services:
     expungement_generator:
-        image: eg_front # or natev/eg-docker-frontend:latest
-        build:
-            context: .
-            dockerfile: Dockerfile
+        # use natev/eg-docker-frontend when testing if the pushed image works right.
+        image: natev/eg-docker-frontend:latest 
+        # use eg_front and build ... to build the image locally.
+        #image: eg_front
+        #build:
+        #    context: .
+        #    dockerfile: Dockerfile
         environment:
             BASE_URL: "http://localhost:9090/"
             CHARGE_DB_HOST: db
@@ -20,13 +23,14 @@ services:
             DB_USER: eg_user
             DB_PASS: somerandompassword
             SENDGRID_KEY: somerandomkey
-            docketscaperAPIURL: "docketscraper_api"
+            docketscraperAPIURL: "docketscraperapi:8000"
         networks:
             - eg-net
         ports:
             - "9090:9090"
         volumes:
-            - type: mount
+            - type: volume 
+              source: egdata
               target: /data
     db:
         image: eg_db # or natev/eg-docker-db:latest
@@ -43,12 +47,25 @@ services:
             - eg-net
         expose:
             - "3306"
-    docketscraper_api:
-        image: "natev/docketscraper_api"
-        restart: always
-        networks:
-          - eg-net
-        expose:
-            - "8800"
+        volumes:
+            - egdb:/var/lib/mysql
+    docketscraperapi:
+      image: "natev/eg-docketscraper"
+      restart: always
+      volumes: 
+            - apidata:/data/
+      environment:
+        SECRET_KEY: "${SECRET_KEY}"
+        DB: "/data/"
+        DEBUG: "TRUE"
+        ALLOWED_HOST: "docketscraperapi"
+      networks:
+        - eg-net
+      expose:
+          - "8000"
 networks:
     eg-net:
+volumes:
+    egdata:
+    apidata:
+    egdb:

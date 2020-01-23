@@ -16,7 +16,7 @@ services:
           DB_USER: eg_user
           DB_PASS: somerandompassword
           SENDGRID_KEY: "${SENDGRID_KEY}"
-          docketscaperAPIURL: "docketscraperapi:8000"
+          docketscraperAPIURL: "docketscraperapi:8000"
       volumes:
           - type: bind
             source: "./Expungement-Generator"
