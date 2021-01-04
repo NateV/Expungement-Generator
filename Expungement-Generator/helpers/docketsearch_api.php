@@ -16,8 +16,7 @@ require_once("config.php");
 function docketNameSearch($firstName, $lastName, $dob, $mdj) {
   global $docketScraperAPIURL;
   $ch = curl_init($docketScraperAPIURL . "/" .
-                  "searchName/" .
-                  ($mdj? "MDJ" : "CP"));
+                  "ujs/name/search/");
   $jsonData = array(
     "first_name" => $firstName,
     "last_name" => $lastName
@@ -25,6 +24,12 @@ function docketNameSearch($firstName, $lastName, $dob, $mdj) {
 
   if ($dob) {
     $jsonData["dob"] = $dob;
+  }
+
+  if ($mdj) {
+    $jsonData["court"] = "MDJ";
+  } else {
+    $jsonData["court"] = "CP";
   }
 
   $jsonDataEncoded = json_encode($jsonData);

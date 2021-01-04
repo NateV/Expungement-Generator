@@ -162,7 +162,7 @@ else
 
     print "<div>&nbsp;</div>";
     if (count($files) > 0)
-        print "<div><b>Download Petitions and Overview: <a href='secureServe.php?serveFile=" . basename($zipFile). "'>" ."Your Expungements" . "</a></b></div>";
+        print "<div><div><em>Make sure that no restitution is owed before filing petitions.</em></div><div><b>Download Petitions and Overview: <a href='secureServe.php?serveFile=" . basename($zipFile). "'>" ."Your Expungements" . "</a></b></div></div>";
     else
         print "<div><b>No expungeable or redactable offenses found for this individual.</b></div>";
 
