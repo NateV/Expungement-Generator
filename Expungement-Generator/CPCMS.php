@@ -61,21 +61,21 @@ class CPCMS
             isset($this->dob) ? $this->dob : false,
             $mdj);
 
-        $status = $results["status"];
+        $status = array_key_exists("searchResults", $results) ? "success" : "error";
 
         error_log( print_r($results, TRUE));
 
         if ($mdj) {
           // This was an MDJ search
           if ($status === "success") {
-            $this->resultsMDJ = $results["dockets"];
+            $this->resultsMDJ = $results["searchResults"]["MDJ"];
           } else {
             $this->resultsMDJ = [];
           }
         } else {
           // This was a CP search
           if ($status === "success") {
-            $this->results = $results["dockets"];
+            $this->results = $results["dockets"]["CP"];
           } else {
             $this->results = [];
           }
