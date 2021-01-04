@@ -63,6 +63,8 @@ class CPCMS
 
         $status = $results["status"];
 
+        error_log( print_r($results, TRUE));
+
         if ($mdj) {
           // This was an MDJ search
           if ($status === "success") {
