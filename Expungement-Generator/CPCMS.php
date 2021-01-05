@@ -63,7 +63,7 @@ class CPCMS
 
         $status = array_key_exists("searchResults", $results) ? "success" : "error";
 
-        error_log( print_r($results, TRUE));
+        //error_log( print_r($results, TRUE));
 
         if ($mdj) {
           // This was an MDJ search
@@ -75,7 +75,7 @@ class CPCMS
         } else {
           // This was a CP search
           if ($status === "success") {
-            $this->results = $results["dockets"]["CP"];
+            $this->results = $results["searchResults"]["CP"];
           } else {
             $this->results = [];
           }
@@ -111,7 +111,7 @@ class CPCMS
               $result["docket_number"] .
               "</a>");
             print (
-              "(<a href='" . $result["summary_url"] .
+              "<a href='" . $result["summary_url"] .
               "' target='_blank'>s</a>)</td>");
             print "<td>" . $result["status"] . "</td>";
             print "<td>" . $result["otn"] . "</td>";

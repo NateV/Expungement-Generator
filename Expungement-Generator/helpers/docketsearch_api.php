@@ -48,10 +48,6 @@ function docketNameSearch($firstName, $lastName, $dob, $mdj) {
   //get the json results
   $jsonResults = json_decode($result, true);
 
-  if ($jsonResults["status"] != "success") {
-    error_log($jsonResults["status"]);
-  }
-
   return $jsonResults;
 }
 
@@ -59,7 +55,7 @@ function docketNameSearch($firstName, $lastName, $dob, $mdj) {
 function manyDocketNumberSearch($dnQueue, $mdj) {
   error_log("Searching for " . count($dnQueue) . " docket numbers at once.");
   global $docketScraperAPIURL;
-  $ch = curl_init($docketScraperAPIURL . "/" . "lookupMultipleDockets");
+  $ch = curl_init($docketScraperAPIURL . "/ujs/search/docket/many/");
   $jsonData = array(
     "docket_numbers" => $dnQueue
   );
@@ -78,8 +74,17 @@ function manyDocketNumberSearch($dnQueue, $mdj) {
   error_log("Completed searching for " . count($dnQueue) . " docket numbers at once.");
   curl_close($ch);
   $jsonResults = json_decode($result, true);
-  error_log("Found " . count($jsonResults["dockets"]) . " of " . count($dnQueue) . " .");
-  return $jsonResults;
+
+  if (array_key_exists("searchResults", $jsonResults) && (array_key_exists("dockets", $jsonResults["searchResults"]))) {
+    error_log("Found " . count($jsonResults["searchResults"]["dockets"]) . " of " . count($dnQueue) . " .");
+    //error_log(print_r($jsonResults,TRUE));
+    error_log("---finished multiple docket search---");
+    return $jsonResults["searchResults"];
+  }
+  error_log("Found no search results!");
+  //error_log(print_r($jsonResults, TRUE));
+  error_log("--finished multiple docket search---");
+  return array("dockets"=>array());
 }
 
 
@@ -92,9 +97,7 @@ function manyDocketNumberSearch($dnQueue, $mdj) {
 //   associative array with information about a specific docket.
 function docketNumberSearch($docketNumber, $mdj) {
   global $docketScraperAPIURL;
-  $ch = curl_init($docketScraperAPIURL . "/" .
-                  "lookupDocket/" .
-                  ($mdj? "MDJ" : "CP"));
+  $ch = curl_init($docketScraperAPIURL . "/ujs/search/docket/");
   $jsonData = array(
     "docket_number" => $docketNumber
   );
