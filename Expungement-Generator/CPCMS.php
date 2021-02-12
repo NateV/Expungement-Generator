@@ -433,6 +433,7 @@ print "
                 foreach ($arrest->getDocketNumber() as $dn)
                 {
                     $add = true;
+
                     // check each arrest against the arrests stored on this object
                     foreach ($docketsFound as $docketFound)
                     {
@@ -448,7 +449,9 @@ print "
                     // if we never found a match, add this docket number to
                     // the list of results.
                     // false indicates that this is a CP, not MDJ docket.
-                    $dnQueue[] = $dn;
+                    if ($add) {
+                      $dnQueue[] = $dn;
+                    }
                     // $this->results[] = docketNumberSearch($dn, false)["docket"];
 
                       // replaced by a function to add a single docket to the
