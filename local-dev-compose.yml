@@ -16,7 +16,7 @@ services:
       DB_USER: eg_user
       DB_PASS: somerandompassword
       SENDGRID_KEY: "${SENDGRID_KEY}"
-      docketscaperAPIURL: "docketscraper_api:8000"
+      docketscraperAPIURL: "docketscraperapi:8000"
     volumes:
       - type: bind
         source: "./Expungement-Generator"
@@ -43,7 +43,7 @@ services:
       - eg-net
     expose:
       - "3306"
-  docketscraper_api:
+  docketscraperapi:
     image: "natev/eg-docketscraper"
     restart: always
     environment:

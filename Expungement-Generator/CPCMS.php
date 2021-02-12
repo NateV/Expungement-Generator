@@ -79,7 +79,12 @@ class CPCMS
             $this->first, $this->last,
             isset($this->dob) ? $this->dob : false);
 
-        $status = array_key_exists("searchResults", $results) ? "success" : "error";
+        if ($results) {
+          $status = array_key_exists("searchResults", $results) ? "success" : "error";
+
+        } else {
+          $status = "error";
+        }
 
         //error_log( print_r($results, TRUE));
 
