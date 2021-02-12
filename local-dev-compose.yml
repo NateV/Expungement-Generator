@@ -1,57 +1,68 @@
-version: '3.2'
+version: "3.2"
 services:
   expungement_generator:
-      image: eg_front
-      build:
-          context: .
-          dockerfile: local-dev-frontend
-      environment:
-          BASE_URL: "http://localhost:9090/"
-          CHARGE_DB_HOST: db
-          CHARGE_DB_USER: eg_user
-          CHARGE_DB_PASS: somerandompassword
-          CHARGE_DB_NAME: cpcms_aopc_summary
-          DB_HOST: db
-          DB_NAME: eg_db
-          DB_USER: eg_user
-          DB_PASS: somerandompassword
-          SENDGRID_KEY: "${SENDGRID_KEY}"
-          docketscaperAPIURL: "docketscraper_api:8800"
-      volumes:
-          - type: bind
-            source: "./Expungement-Generator"
-            target: /var/www/html
-          - type: mount
-            source: egdatavolume
-            target: /data
-      networks:
-          - eg-net
-      ports:
-          - "9090:9090"
+    image: eg_front
+    build:
+      context: .
+      dockerfile: local-dev-frontend
+    environment:
+      BASE_URL: "http://localhost:9090/"
+      CHARGE_DB_HOST: db
+      CHARGE_DB_USER: eg_user
+      CHARGE_DB_PASS: somerandompassword
+      CHARGE_DB_NAME: cpcms_aopc_summary
+      DB_HOST: db
+      DB_NAME: eg_db
+      DB_USER: eg_user
+      DB_PASS: somerandompassword
+      SENDGRID_KEY: "${SENDGRID_KEY}"
+      docketscaperAPIURL: "docketscraper_api:8000"
+    volumes:
+      - type: bind
+        source: "./Expungement-Generator"
+        target: /var/www/html
+      - type: mount
+        source: egdatavolume
+        target: /data
+    networks:
+      - eg-net
+    ports:
+      - "9090:9090"
   db:
-      image: eg_db # or natev/eg-docker-db:latest
-      build:
-          context: .
-          dockerfile: db_dockerfile
-      restart: always
-      environment:
-          MYSQL_ROOT_PASSWORD: someBigOleComplexPassword
-          MYSQL_DATABASE: eg_db
-          MYSQL_USER: eg_user
-          MYSQL_PASSWORD: somerandompassword
-      networks:
-          - eg-net
-      expose:
-            - "3306"
+    image: eg_db # or natev/eg-docker-db:latest
+    build:
+      context: .
+      dockerfile: db_dockerfile
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: someBigOleComplexPassword
+      MYSQL_DATABASE: eg_db
+      MYSQL_USER: eg_user
+      MYSQL_PASSWORD: somerandompassword
+    networks:
+      - eg-net
+    expose:
+      - "3306"
   docketscraper_api:
-      image: "natev/docketscraper_api"
-      #image: "egscraper:latest"
-      restart: always
-      environment:
-        GUNICORN_LOGGER: "true"
-      networks:
-        - eg-net
-      expose:
-          - "8800"
+    image: "natev/eg-docketscraper"
+    restart: always
+    environment:
+      GUNICORN_LOGGER: "true"
+      SECRET_KEY: "xxx"
+      DB: "/data/"
+      DEBUG: "TRUE"
+    networks:
+      - eg-net
+    expose:
+      - "8000"
+    volumes:
+      - apidata:/data/
+    logging:
+      driver: "json-file"
+      options:
+        max-file: "5"
+        max-size: "10m"
+volumes:
+  apidata:
 networks:
-    eg-net:
+  eg-net:

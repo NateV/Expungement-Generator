@@ -54,10 +54,7 @@
 			$cpcms = new CPCMS(
 					$urlPerson['First'], $urlPerson['Last'], $urlPerson['DOB']);
 			$status = $cpcms->cpcmsSearch();
-			$statusMDJ = $cpcms->cpcmsSearch(true);
-			if (
-					(sizeof($cpcms->getResults()) === 0) &&
-					(sizeof($cpcms->getMDJResults()) === 0)) {
+			if ((sizeof($cpcms->getResults()) === 0)) {
 				$response['results'] = "Your CPCMS search returned no results.";
 			} else {
 				//only integrate the summary information if we

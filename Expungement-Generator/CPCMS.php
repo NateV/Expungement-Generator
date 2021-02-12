@@ -49,38 +49,48 @@ class CPCMS
             $this->dob = date("m/d/Y", $time);
     }
 
+    // Split a list of search results from the UJS search into 
+    // an array w/ two keys - one for MDJ results and one 
+    // for Common Pleas results.
+    private function sliceResults($results) {
+      $cp = array();
+      $mdj = array();
+      $split = array(
+        "CP" => $cp,
+        "MDJ" => $mdj
+      );
+      foreach ($results as $res)  {
+        if (preg_match("^MJ.*", $res)) {
+          $split["MDJ"][] = $res;
+        } else {
+          $split["CP"][] = $res;
+        }
+      }
+      return($split);
+    }
 
     // searches CPCMS for the person matchine first, last, and DOB.  If no DOB is specified, returns
     // the first page of results from a search of just the first and last name.
     // param mdj will do an MDJ search and modify the MDJ member not the regular cpcms member.
     // Returns the sttaus code.
-    public function cpcmsSearch($mdj=false) {
+    public function cpcmsSearch() {
         error_log("Conducting cpcms search");
         $results = docketNameSearch(
             $this->first, $this->last,
-            isset($this->dob) ? $this->dob : false,
-            $mdj);
+            isset($this->dob) ? $this->dob : false);
 
         $status = array_key_exists("searchResults", $results) ? "success" : "error";
 
         //error_log( print_r($results, TRUE));
 
-        if ($mdj) {
-          // This was an MDJ search
-          if ($status === "success") {
-            $this->resultsMDJ = $results["searchResults"]["MDJ"];
-          } else {
-            $this->resultsMDJ = [];
-          }
+        if ($status === "success") {
+          $slicedResults = $this->sliceResults($results["searchResults"]);
+          $this->resultsMDJ = $slicedResults["MDJ"];
+          $this->results = $slicedResults["CP"];
         } else {
-          // This was a CP search
-          if ($status === "success") {
-            $this->results = $results["searchResults"]["CP"];
-          } else {
-            $this->results = [];
-          }
+          $this->resultsMDJ = [];
+          $this->results = [];
         }
-
         return $status;
     }
 

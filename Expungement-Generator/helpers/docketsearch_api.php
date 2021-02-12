@@ -13,7 +13,7 @@ require_once("config.php");
 // Returns:
 //   associative array of the json response from the api, with the results of
 //   the search.
-function docketNameSearch($firstName, $lastName, $dob, $mdj) {
+function docketNameSearch($firstName, $lastName, $dob) {
   global $docketScraperAPIURL;
   $ch = curl_init($docketScraperAPIURL . "/" .
                   "ujs/search/name/");
@@ -26,11 +26,6 @@ function docketNameSearch($firstName, $lastName, $dob, $mdj) {
     $jsonData["dob"] = $dob;
   }
 
-  if ($mdj) {
-    $jsonData["court"] = "MDJ";
-  } else {
-    $jsonData["court"] = "CP";
-  }
 
   $jsonDataEncoded = json_encode($jsonData);
   //Tell cURL that we want to send a POST request.
@@ -47,6 +42,7 @@ function docketNameSearch($firstName, $lastName, $dob, $mdj) {
   curl_close($ch);
   //get the json results
   $jsonResults = json_decode($result, true);
+
 
   return $jsonResults;
 }
@@ -77,7 +73,7 @@ function manyDocketNumberSearch($dnQueue, $mdj) {
 
   if (array_key_exists("searchResults", $jsonResults) && (array_key_exists("dockets", $jsonResults["searchResults"]))) {
     error_log("Found " . count($jsonResults["searchResults"]["dockets"]) . " of " . count($dnQueue) . " .");
-    //error_log(print_r($jsonResults,TRUE));
+    //error_log(oprint_r($jsonResults,TRUE));
     error_log("---finished multiple docket search---");
     return $jsonResults["searchResults"];
   }

@@ -86,9 +86,7 @@ if ($submit)
 {
     $cpcms = new cpcms($first, $last, $dob);
     $status = $cpcms->cpcmsSearch();
-    $statusMDJ = $cpcms->cpcmsSearch(true);
-    if ((count($cpcms->getResults()) == 0) &&
-        (count($cpcms->getMDJResults()) == 0)) {
+    if ((count($cpcms->getResults()) == 0)) {
         print "<br/><b>Your search returned no results.  This is probably because there is no one with the name $first $last in the court database.  You can try searching <a href='http://ujsportal.pacourts.us' target='_blank'>CPCMS directly</a> if you think that there is some error.";
     } else {
         //only integrate the summary information if we have a DOB; otherwise what is the point?
