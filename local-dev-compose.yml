@@ -44,13 +44,14 @@ services:
     expose:
       - "3306"
   docketscraperapi:
-    image: "natev/eg-docketscraper"
+    image: "${REPOSITORY}/eg-docketscraper:v2.0.0"
     restart: always
     environment:
       GUNICORN_LOGGER: "true"
       SECRET_KEY: "xxx"
       DB: "/data/"
       DEBUG: "TRUE"
+      ALLOWED_HOST: "docketscraperapi"
     networks:
       - eg-net
     expose:
