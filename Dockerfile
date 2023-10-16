@@ -1,6 +1,6 @@
 # Dockerfile for Expungement Generator's frontend.
 
-FROM php:7.2-apache-stretch
+FROM php:7.2-apache-bullseye
 
 RUN apt-get update && \
     apt-get upgrade -y && \
