@@ -4,7 +4,7 @@ FROM php:8.2-apache-bullseye
 
 RUN apt-get update && \
     apt-get upgrade -y && \
-    apt-get install -y git nano wget python2.7 libfontconfig poppler-utils cron zlib1g-dev nano unattended-upgrades apt-listchanges && \
+    apt-get install -y git nano wget python2.7 libfontconfig poppler-utils cron zlib1g-dev nano unattended-upgrades apt-listchanges libzip-dev zlib1g-dev && \
     ln -s /usr/bin/pdftotext /usr/local/bin/pdftotext
 
 RUN cd /usr/local/include && \

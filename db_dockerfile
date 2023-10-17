@@ -1,6 +1,6 @@
 FROM mysql:5.7
 
-RUN apt-get update && apt-get install -y unattended-upgrades apt-listchanges
+RUN yum update
 
 COPY conf.d/disable_strict_mode.cnf /etc/mysql/conf.d/disable_strict_mode.cnf
 
