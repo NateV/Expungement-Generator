@@ -1,6 +1,6 @@
-FROM mysql:5.7
+FROM mysql:8.3
 
-RUN yum update
+RUN microdnf update -y
 
 COPY conf.d/disable_strict_mode.cnf /etc/mysql/conf.d/disable_strict_mode.cnf
 
