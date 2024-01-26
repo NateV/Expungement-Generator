@@ -60,7 +60,7 @@ class CPCMS
         "MDJ" => $mdj
       );
       foreach ($results as $res)  {
-        if (preg_match("^MJ.*", $res)) {
+        if (preg_match("^MJ.*", $res["docket_number"])) {
           $split["MDJ"][] = $res;
         } else {
           $split["CP"][] = $res;

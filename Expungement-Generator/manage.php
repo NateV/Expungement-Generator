@@ -236,7 +236,7 @@ END;
 		print "<td>{$row['email']}</td>";
 		print "<td>{$row['userLevel']}</td>";
 		print "<td>{$row['programName']}</td>";
-		if ($row{'ifp'})
+		if ($row['ifp'])
 			print "<td>Yes</td>";
 		else
 			print "<td>No</td>";
