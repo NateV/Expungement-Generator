@@ -109,8 +109,8 @@ else
         <div>
         <div class="form-item">
             <input type="radio" name="cpcmsSearch" value="false" onclick="$('#addFiles').show();"/>I would like to upload my own dockets
-        </div>
-        <div class="space-line"></div>
+       </div>
+       <div class="space-line"></div>
         <div style="display:none" id="addFiles">
     		<div class="form-item">
     			<label for="userFile1">Send these files (contrl click to select multiple files)</label>

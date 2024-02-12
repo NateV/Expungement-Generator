@@ -305,6 +305,11 @@ print "
         <input type='hidden' name='scrapedDockets' value='true'>
         <input type='submit' value='Expunge/Seal' />
         </div>
+        <div> 
+            <label for='addEntryOfAppearance'> Generate an Entry of Appearance? </label>
+            <input id='addEntryOfAppearance' type='checkbox' name='addEntryOfAppearance' value='addEntryOfAppearance'/> 
+        </div>
+ 
         </form>
         <script type='text/javascript'>
         // this allows us to have a checkall/deselect all checkbox

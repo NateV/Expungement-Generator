@@ -76,6 +76,21 @@ function doExpungements($arrests, $templateDir, $dataDir, $person, $attorney, $e
 	return $files;
 }
 
+
+// Add an Entry Of Appearance tempalte to the set of generated documents.
+function addEntryOfAppearance($templateDir, $attorney){
+    $docx = new \PhpOffice\PhpWord\TemplateProcessor($templateDir . "entry_of_appearance.docx");
+
+    $docx->setValue("COUNSELOR_FOR_PETITIONER", htmlspecialchars($attorney->getFirstName()) . " " . htmlspecialchars($attorney->getLastName()));
+
+    $docx->setValue("PROGRAM_NAME", htmlspecialchars($attorney->getProgramName()));
+
+    $outputFile = $dataDir . "EntryOfAppearance.docx";
+    $docx->saveAs($outputFile);
+    return $outputFile;
+
+}
+
 // creates an overview document that lists all of the relevant information for the advocate
 function createOverview($arrests, $templateDir, $dataDir, $person)
 {

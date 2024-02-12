@@ -154,6 +154,16 @@ else
 
     $files[] = $record->generateCleanSlateOverview($templateDir, $dataDir);
 
+
+    // Check if the addEntryOfAppearance box was checked, and if so, add the entry of appearance to 
+    // the generated files.
+    error_log("checking on adding entry of appearance");
+    if (isset($_REQUEST["addEntryOfAppearance"]) && ($_REQUEST["addEntryOfAppearance"] == "addEntryOfAppearance")) {
+        error_log("yup. add entry of appearance please");
+        $files[] = addEntryOfAppearance($templateDir, $attorney);
+    }
+
+
     // zip up the final PDFs
     $filename = bin2hex(random_bytes(10));
     $zipFile = zipFiles($files, $dataDir, $docketFiles, $filename);
