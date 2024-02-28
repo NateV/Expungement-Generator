@@ -118,8 +118,15 @@ else
     			<input name="userFile[]" type="file" multiple="true" name="userFile1"/>
     		</div>
     		<div class="space-line">&nbsp;</div>
+            <div class="form-item"> 
+                <label for='addEntryOfAppearance'> Generate an Entry of Appearance? </label>
+                <input id='addEntryOfAppearance' type='checkbox' name='addEntryOfAppearance' value='addEntryOfAppearance'/> 
+                Generate an Entry of Appearance? 
+            </div>
+ 
             <div class="form-item">
-                <input type="checkbox" name="expungeRegardless" value="true" />File expungements regardless of expungeability? (Pardons, etc...)
+                <label for="expungeRegardless">File Expungements Regardless of Expungeability?"</label>
+                <input type="checkbox" name="expungeRegardless" id="expungeRegardless" value="true" />File expungements regardless of expungeability? (Pardons, etc...)
             </div>
     		<div class="space-line">&nbsp;</div>
         </div>
