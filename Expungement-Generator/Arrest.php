@@ -1910,7 +1910,7 @@ class Arrest
         if (empty($this->getArrestingAgency()))
             return ($this->getCounty() . " County, PA");
 
-        $query = 'SELECT * FROM Police WHERE MATCH(name) AGAINST("' . $this->getArrestingAgency() . '") LIMIT 1;';
+        $query = 'SELECT * FROM police WHERE MATCH(name) AGAINST("' . $this->getArrestingAgency() . '") LIMIT 1;';
         $result = $GLOBALS['db']->query($query);
 
         if (!$result)
