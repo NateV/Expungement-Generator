@@ -1,5 +1,10 @@
 ## EG-Docker Version Notes
 
+__DEPRECATED__
+This app in the process of deprecation.
+
+
+---
 This version of the Expungement Generator has a few minor modifications that make it easier to containerize. See the repository NateV/eg-docker for the docker-compose and Dockerfile that create Docker containers.
 
 This version of the EG should be rebased every so often to make sure it stays up to date with the changes to the EG master branch.
